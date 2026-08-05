@@ -50,6 +50,10 @@
   .detail.open{display:flex;}
   .detail-score{color:var(--text); font-weight:500;}
   .detail-toggle{font-size:12px; color:var(--accent); cursor:pointer; margin-top:8px; user-select:none;}
+  .form-recent{margin-top:8px; padding-top:8px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:6px;}
+  .form-row{font-size:12px; color:var(--muted);}
+  .form-row strong{color:var(--text); font-weight:500;}
+  .form-badge{margin-left:2px;}
   .pick-row{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:10px;}
   .pick-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
   .pick-sport{font-size:11px; text-transform:uppercase; letter-spacing:0.03em; color:var(--accent); font-weight:600;}
@@ -236,7 +240,7 @@ function extractEspnStandings(json){
     if(node.team && Array.isArray(node.stats)){
       const statMap = {};
       node.stats.forEach(s => { if(s && s.name !== undefined) statMap[s.name] = (s.value !== undefined ? s.value : s.displayValue); });
-      results.push({ name: node.team.displayName || node.team.name || "?", logo: (node.team.logos && node.team.logos[0] && node.team.logos[0].href) || node.team.logo || "", stats: statMap });
+      results.push({ name: node.team.displayName || node.team.name || "?", id: node.team.id, logo: (node.team.logos && node.team.logos[0] && node.team.logos[0].href) || node.team.logo || "", stats: statMap });
     }
     Object.values(node).forEach(walk);
   }
@@ -323,16 +327,113 @@ function estimateScore(hPF, hPA, aPF, aPA, hfa){
   if(awayEst < 0) awayEst = 0;
   return homeEst + "-" + awayEst;
 }
-function attachDetailToggle(card, detail){
+function attachDetailToggle(card, detail, formLoader){
   const toggle = document.createElement("div");
   toggle.className = "detail-toggle";
   toggle.textContent = "Ver detalle del pronóstico ▾";
-  toggle.addEventListener("click", () => {
+  let formLoaded = false;
+  toggle.addEventListener("click", async () => {
     const open = detail.classList.toggle("open");
     toggle.textContent = open ? "Ocultar detalle ▲" : "Ver detalle del pronóstico ▾";
+    if(open && formLoader && !formLoaded){
+      formLoaded = true;
+      const container = document.createElement("div");
+      container.className = "form-recent";
+      container.textContent = "Cargando últimos 10 resultados...";
+      detail.appendChild(container);
+      try{
+        container.innerHTML = await formLoader();
+      } catch(e){ container.textContent = "No se pudo cargar la forma reciente."; }
+    }
   });
   card.appendChild(toggle);
   card.appendChild(detail);
+}
+const formCache = {};
+async function getRecentForm(cacheKey, fetcher){
+  if(formCache[cacheKey]) return formCache[cacheKey];
+  const promise = fetcher().catch(() => []);
+  formCache[cacheKey] = promise;
+  return promise;
+}
+function competitorResultEspn(ev, teamId){
+  const comp = ev.competitions && ev.competitions[0];
+  if(!comp) return null;
+  const statusType = comp.status && comp.status.type;
+  if(!statusType || !statusType.completed) return null;
+  const competitors = comp.competitors || [];
+  const me = competitors.find(c => c.team && String(c.team.id) === String(teamId));
+  const opp = competitors.find(c => c.team && String(c.team.id) !== String(teamId));
+  if(!me || !opp) return null;
+  const meScore = Number(me.score && typeof me.score === "object" ? me.score.value : me.score);
+  const oppScore = Number(opp.score && typeof opp.score === "object" ? opp.score.value : opp.score);
+  let result = null;
+  if(me.winner === true) result = "W";
+  else if(opp.winner === true) result = "L";
+  else if(Number.isFinite(meScore) && Number.isFinite(oppScore)){
+    result = meScore > oppScore ? "W" : meScore < oppScore ? "L" : "D";
+  }
+  return result ? { result, date: ev.date, oppName: (opp.team && (opp.team.displayName || opp.team.name)) || "?" } : null;
+}
+async function fetchEspnRecentForm(sportPath, leagueSlug, teamId){
+  const json = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/" + sportPath + "/" + leagueSlug + "/teams/" + teamId + "/schedule")).json();
+  const results = [];
+  (json.events || []).forEach(ev => { const r = competitorResultEspn(ev, teamId); if(r) results.push(r); });
+  results.sort((a,b) => new Date(b.date) - new Date(a.date));
+  return results.slice(0, 10);
+}
+async function fetchMlbRecentForm(teamId){
+  const endD = new Date(); const startD = new Date(); startD.setDate(startD.getDate() - 35);
+  const json = await (await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=" + teamId + "&startDate=" + isoDate(startD) + "&endDate=" + isoDate(endD) + "&gameType=R")).json();
+  const games = [];
+  (json.dates || []).forEach(d => (d.games || []).forEach(g => games.push(g)));
+  const results = [];
+  games.forEach(g => {
+    if(!g.status || g.status.abstractGameState !== "Final") return;
+    const isHome = String(g.teams.home.team.id) === String(teamId);
+    const meScore = Number(isHome ? g.teams.home.score : g.teams.away.score);
+    const oppScore = Number(isHome ? g.teams.away.score : g.teams.home.score);
+    if(!Number.isFinite(meScore) || !Number.isFinite(oppScore)) return;
+    const oppName = (isHome ? g.teams.away.team.name : g.teams.home.team.name) || "?";
+    results.push({ result: meScore > oppScore ? "W" : meScore < oppScore ? "L" : "D", date: g.gameDate, oppName });
+  });
+  results.sort((a,b) => new Date(b.date) - new Date(a.date));
+  return results.slice(0, 10);
+}
+function renderFormRow(label, results){
+  if(!results || results.length === 0) return '<div class="form-row"><strong>' + label + ':</strong> sin datos recientes</div>';
+  const badges = results.map(r => '<span class="form-badge form-' + r.result + '" title="' + (r.result==="W"?"Victoria":r.result==="L"?"Derrota":"Empate") + ' vs ' + r.oppName + '">' + r.result + '</span>').join("");
+  return '<div class="form-row"><strong>' + label + ':</strong> ' + badges + '</div>';
+}
+function footballFormLoader(slug, home, away, ev){
+  if(!home || !home.id || !away || !away.id) return null;
+  return async () => {
+    const [h, a] = await Promise.all([
+      getRecentForm("soccer:" + slug + ":" + home.id, () => fetchEspnRecentForm("soccer", slug, home.id)),
+      getRecentForm("soccer:" + slug + ":" + away.id, () => fetchEspnRecentForm("soccer", slug, away.id))
+    ]);
+    return renderFormRow(ev.homeName, h) + renderFormRow(ev.awayName, a);
+  };
+}
+function espnTeamFormLoader(sportPath, leagueSlug, home, away, homeName, awayName){
+  if(!home || !home.id || !away || !away.id) return null;
+  return async () => {
+    const [h, a] = await Promise.all([
+      getRecentForm(sportPath + ":" + leagueSlug + ":" + home.id, () => fetchEspnRecentForm(sportPath, leagueSlug, home.id)),
+      getRecentForm(sportPath + ":" + leagueSlug + ":" + away.id, () => fetchEspnRecentForm(sportPath, leagueSlug, away.id))
+    ]);
+    return renderFormRow(homeName, h) + renderFormRow(awayName, a);
+  };
+}
+function mlbFormLoader(home, away, homeName, awayName){
+  if(!home || !home.id || !away || !away.id) return null;
+  return async () => {
+    const [h, a] = await Promise.all([
+      getRecentForm("mlb:" + home.id, () => fetchMlbRecentForm(home.id)),
+      getRecentForm("mlb:" + away.id, () => fetchMlbRecentForm(away.id))
+    ]);
+    return renderFormRow(homeName, h) + renderFormRow(awayName, a);
+  };
 }
 function isToday(iso){
   if(!iso) return false;
@@ -376,11 +477,11 @@ function buildFootballStrengths(entries){
     const gf = getStat(e.stats, ["pointsFor"], 0), ga = getStat(e.stats, ["pointsAgainst"], 0);
     const pts = getStat(e.stats, ["points"], wins*3+ties);
     totalGF += gf; totalPlayed += played;
-    return { name: e.name, logo: e.logo, played, wins, losses, ties, gf, ga, pts };
+    return { name: e.name, id: e.id, logo: e.logo, played, wins, losses, ties, gf, ga, pts };
   });
   const leagueAvg = totalPlayed > 0 ? totalGF / totalPlayed : 1.3;
   const strengths = {};
-  parsed.forEach(t => { strengths[t.name] = { attack: (t.gf/(t.played||1))/leagueAvg, defense: (t.ga/(t.played||1))/leagueAvg, formMult: 1 }; });
+  parsed.forEach(t => { strengths[t.name] = { attack: (t.gf/(t.played||1))/leagueAvg, defense: (t.ga/(t.played||1))/leagueAvg, formMult: 1, id: t.id }; });
   return { strengths, leagueAvg, parsed };
 }
 function renderFootballStandings(parsed){
@@ -395,7 +496,7 @@ function renderFootballStandings(parsed){
     tbody.appendChild(tr);
   });
 }
-function renderFootballMatches(events, strengths, leagueAvg){
+function renderFootballMatches(events, strengths, leagueAvg, slug){
   const list = el("football-matches-list"); list.innerHTML = "";
   if(!events || events.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos programados para esta liga en este momento.</div>'; return; }
   events.forEach(ev => {
@@ -421,7 +522,7 @@ function renderFootballMatches(events, strengths, leagueAvg){
         : pickAway ? poissonWhy(false, ev.awayName, ev.homeName, away.attack, home.defense, "goles")
         : "Ambos equipos muestran fuerza similar de ataque/defensa — partido parejo.";
       detail.innerHTML = '<span class="detail-score">Resultado más probable: ' + score + '</span><span class="detail-why">' + why + '</span>';
-      attachDetailToggle(card, detail);
+      attachDetailToggle(card, detail, footballFormLoader(slug, strengths[ev.homeName], strengths[ev.awayName], ev));
     }
     list.appendChild(card);
   });
@@ -445,7 +546,7 @@ async function loadFootball(){
       return bOk - aOk;
     });
     const events = allEvents.slice(0, 20);
-    renderFootballMatches(events, strengths, leagueAvg);
+    renderFootballMatches(events, strengths, leagueAvg, slug);
 
     setStatus("football", (entries.length === 0 ? "Sin tabla disponible para esta competición (formato copa). " : "Actualizado — " + entries.length + " equipos. ") + events.length + " próximos partidos.");
   } catch(err){ setStatus("football", "Error: " + err.message); }
@@ -468,7 +569,7 @@ async function loadBasketball(){
       let pf = getStat(e.stats, ["avgPointsFor"], null); if(pf===null) pf = getStat(e.stats, ["pointsFor"], 0) / played;
       let pa = getStat(e.stats, ["avgPointsAgainst"], null); if(pa===null) pa = getStat(e.stats, ["pointsAgainst"], 0) / played;
       const winPct = getStat(e.stats, ["winPercent"], played ? wins/played : 0);
-      strengths[e.name] = { net: pf - pa, pf, pa };
+      strengths[e.name] = { net: pf - pa, pf, pa, id: e.id };
       const tr = document.createElement("tr");
       tr.innerHTML = '<td>' + (i+1) + '</td><td><img class="badge" src="' + e.logo + '" onerror="this.style.display=\'none\'">' + e.name + '</td>' +
         '<td class="num">' + played + '</td><td class="num">' + wins + '</td><td class="num">' + losses + '</td>' +
@@ -492,7 +593,7 @@ async function loadBasketball(){
         const why = homePct >= awayPct ? netRatingWhy(true, g.homeName, g.awayName, h.net, a.net) : netRatingWhy(false, g.awayName, g.homeName, a.net, h.net);
         const score = estimateScore(h.pf, h.pa, a.pf, a.pa, 2.5);
         detail.innerHTML = '<span class="detail-score">Resultado estimado: ' + score + '</span><span class="detail-why">' + why + '</span>';
-        attachDetailToggle(card, detail);
+        attachDetailToggle(card, detail, espnTeamFormLoader("basketball", "nba", h, a, g.homeName, g.awayName));
       }
       list.appendChild(card);
     });
@@ -518,7 +619,7 @@ async function loadBaseball(){
       const played = Number(tr.gamesPlayed)||1;
       const rs = Number(tr.runsScored)||0, ra = Number(tr.runsAllowed)||0;
       const name = tr.team.name;
-      strengths[name] = { attack: (rs/played)/leagueAvg, defense: (ra/played)/leagueAvg, winPct: Number(tr.winningPercentage)||0.5 };
+      strengths[name] = { attack: (rs/played)/leagueAvg, defense: (ra/played)/leagueAvg, winPct: Number(tr.winningPercentage)||0.5, id: tr.team.id };
       const row = document.createElement("tr");
       row.innerHTML = '<td>' + (i+1) + '</td><td>' + name + '</td>' +
         '<td class="num">' + played + '</td><td class="num">' + tr.wins + '</td><td class="num">' + tr.losses + '</td>' +
@@ -552,7 +653,7 @@ async function loadBaseball(){
         const why = (homePct >= awayPct ? poissonWhy(true, homeName, awayName, h.attack, a.defense, "carreras") : poissonWhy(false, awayName, homeName, a.attack, h.defense, "carreras"))
           + " Récord de temporada: " + homeName + " " + (h.winPct*100).toFixed(1) + "% vs " + awayName + " " + (a.winPct*100).toFixed(1) + "%.";
         detail.innerHTML = '<span class="detail-score">Resultado más probable: ' + score + '</span><span class="detail-why">' + why + '</span>';
-        attachDetailToggle(card, detail);
+        attachDetailToggle(card, detail, mlbFormLoader(h, a, homeName, awayName));
       }
       list.appendChild(card);
     });
@@ -612,7 +713,7 @@ async function loadNFL(){
       let pf = getStat(e.stats, ["avgPointsFor"], null); if(pf===null) pf = getStat(e.stats, ["pointsFor"], 0) / played;
       let pa = getStat(e.stats, ["avgPointsAgainst"], null); if(pa===null) pa = getStat(e.stats, ["pointsAgainst"], 0) / played;
       const winPct = getStat(e.stats, ["winPercent"], played ? wins/played : 0);
-      strengths[e.name] = { net: pf - pa, pf, pa };
+      strengths[e.name] = { net: pf - pa, pf, pa, id: e.id };
       const tr = document.createElement("tr");
       tr.innerHTML = '<td>' + (i+1) + '</td><td><img class="badge" src="' + e.logo + '" onerror="this.style.display=\'none\'">' + e.name + '</td>' +
         '<td class="num">' + played + '</td><td class="num">' + wins + '</td><td class="num">' + losses + '</td>' +
@@ -636,7 +737,7 @@ async function loadNFL(){
         const why = homePct >= awayPct ? netRatingWhy(true, g.homeName, g.awayName, h.net, a.net) : netRatingWhy(false, g.awayName, g.homeName, a.net, h.net);
         const score = estimateScore(h.pf, h.pa, a.pf, a.pa, 2);
         detail.innerHTML = '<span class="detail-score">Resultado estimado: ' + score + '</span><span class="detail-why">' + why + '</span>';
-        attachDetailToggle(card, detail);
+        attachDetailToggle(card, detail, espnTeamFormLoader("football", "nfl", h, a, g.homeName, g.awayName));
       }
       list.appendChild(card);
     });
