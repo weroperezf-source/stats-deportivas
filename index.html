@@ -375,12 +375,27 @@ function competitorResultEspn(ev, teamId){
   }
   return result ? { result, date: ev.date, oppName: (opp.team && (opp.team.displayName || opp.team.name)) || "?" } : null;
 }
-async function fetchEspnRecentForm(sportPath, leagueSlug, teamId){
+async function fetchEspnRecentFormOnce(sportPath, leagueSlug, teamId){
   const json = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/" + sportPath + "/" + leagueSlug + "/teams/" + teamId + "/schedule")).json();
   const results = [];
   (json.events || []).forEach(ev => { const r = competitorResultEspn(ev, teamId); if(r) results.push(r); });
   results.sort((a,b) => new Date(b.date) - new Date(a.date));
   return results.slice(0, 10);
+}
+const SOCCER_FALLBACK_SLUGS = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "usa.1", "mex.1"];
+async function fetchEspnRecentForm(sportPath, leagueSlug, teamId){
+  const first = await fetchEspnRecentFormOnce(sportPath, leagueSlug, teamId);
+  if(first.length > 0 || sportPath !== "soccer") return first;
+  // The team may not have played yet within this specific competition (e.g. a cup just starting) —
+  // fall back to trying its likely domestic league so we still show real recent form.
+  for(const slug of SOCCER_FALLBACK_SLUGS){
+    if(slug === leagueSlug) continue;
+    try{
+      const alt = await fetchEspnRecentFormOnce(sportPath, slug, teamId);
+      if(alt.length > 0) return alt;
+    } catch(e){}
+  }
+  return first;
 }
 async function fetchMlbRecentForm(teamId){
   const endD = new Date(); const startD = new Date(); startD.setDate(startD.getDate() - 35);
