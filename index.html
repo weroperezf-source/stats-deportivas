@@ -145,10 +145,12 @@
       <label class="sport-check"><input type="checkbox" value="tennis" checked> Tenis (ATP)</label>
       <label class="sport-check"><input type="checkbox" value="nfl" checked> NFL</label>
     </div>
-    <div class="sport-checks">
-      <label class="sport-check"><input type="checkbox" id="picks-today-only"> Solo partidos de hoy</label>
-    </div>
     <div class="controls">
+      <select id="picks-date-filter">
+        <option value="all">Todos los próximos partidos</option>
+        <option value="today">Solo hoy</option>
+        <option value="tomorrow">Solo mañana</option>
+      </select>
       <button id="picks-reload">Calcular picks</button>
       <span id="picks-status" class="status"></span>
     </div>
@@ -337,6 +339,22 @@ function isToday(iso){
   const d = new Date(iso), now = new Date();
   return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
 }
+function isTomorrow(iso){
+  if(!iso) return false;
+  const d = new Date(iso), t = new Date(); t.setDate(t.getDate()+1);
+  return d.getFullYear()===t.getFullYear() && d.getMonth()===t.getMonth() && d.getDate()===t.getDate();
+}
+async function fetchAtpRankMap(){
+  try{
+    const json = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/tennis/atp/rankings")).json();
+    const map = {};
+    (json.rankings || []).forEach(r => (r.ranks || []).forEach(rk => {
+      const name = rk.athlete && rk.athlete.displayName;
+      if(name && rk.current) map[name] = rk.current;
+    }));
+    return map;
+  } catch(e){ return {}; }
+}
 
 /* ---------- FÚTBOL ---------- */
 const LEAGUES = [
@@ -420,7 +438,13 @@ async function loadFootball(){
     const { strengths, leagueAvg, parsed } = buildFootballStrengths(entries);
     renderFootballStandings(parsed);
 
-    const events = extractEspnEvents(schedJson).slice(0, 20);
+    const allEvents = extractEspnEvents(schedJson);
+    allEvents.sort((a,b) => {
+      const aOk = strengths[a.homeName] && strengths[a.awayName] ? 1 : 0;
+      const bOk = strengths[b.homeName] && strengths[b.awayName] ? 1 : 0;
+      return bOk - aOk;
+    });
+    const events = allEvents.slice(0, 20);
     renderFootballMatches(events, strengths, leagueAvg);
 
     setStatus("football", (entries.length === 0 ? "Sin tabla disponible para esta competición (formato copa). " : "Actualizado — " + entries.length + " equipos. ") + events.length + " próximos partidos.");
@@ -507,9 +531,10 @@ async function loadBaseball(){
     const schedJson = await schedRes.json();
     const games = [];
     (schedJson.dates || []).forEach(d => (d.games || []).forEach(g => games.push(g)));
+    const upcoming = games.filter(g => !g.status || g.status.abstractGameState === "Preview");
     const list = el("baseball-matches-list"); list.innerHTML = "";
-    if(games.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos en los próximos 7 días.</div>'; }
-    games.slice(0, 25).forEach(g => {
+    if(upcoming.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos en los próximos 7 días.</div>'; }
+    upcoming.slice(0, 25).forEach(g => {
       const homeName = g.teams.home.team.name, awayName = g.teams.away.team.name;
       const h = strengths[homeName] || { attack:1, defense:1, winPct:0.5 }; const a = strengths[awayName] || { attack:1, defense:1, winPct:0.5 };
       const expHome = leagueAvg * 1.08 * h.attack * a.defense;
@@ -531,7 +556,7 @@ async function loadBaseball(){
       }
       list.appendChild(card);
     });
-    setStatus("baseball", "Actualizado — " + rows.length + " equipos, " + games.length + " próximos partidos.");
+    setStatus("baseball", "Actualizado — " + rows.length + " equipos, " + upcoming.length + " próximos partidos.");
   } catch(err){ setStatus("baseball", "Error al cargar datos: " + err.message); }
 }
 
@@ -539,23 +564,28 @@ async function loadBaseball(){
 async function loadTennis(){
   setStatus("tennis", "Cargando...");
   try{
-    const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard");
+    const [res, rankMap] = await Promise.all([
+      fetch("https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard"),
+      fetchAtpRankMap()
+    ]);
     const json = await res.json();
     const matches = extractEspnEvents(json);
     const list = el("tennis-matches-list"); list.innerHTML = "";
     if(matches.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos ATP disponibles en este momento.</div>'; }
     matches.forEach(m => {
+      const homeRank = m.homeRank || rankMap[m.homeName];
+      const awayRank = m.awayRank || rankMap[m.awayName];
       const card = matchCardHTML(fmtDate(m.date) + (m.status ? " · " + m.status : ""), "", m.homeName, m.awayName, m.homeLogo, m.awayLogo);
       let homePct = 50, awayPct = 50, hasData = false;
-      if(m.homeRank && m.awayRank){
-        const p = logistic(Number(m.awayRank) - Number(m.homeRank), 8);
+      if(homeRank && awayRank){
+        const p = logistic(Number(awayRank) - Number(homeRank), 8);
         homePct = Math.round(p*100); awayPct = 100-homePct; hasData = true;
       }
       renderProbBar(card, homePct, 0, awayPct, false);
       if(!hasData){ const n=document.createElement("div"); n.className="note"; n.textContent="Ranking ATP no disponible para este partido — probabilidad 50/50 por defecto."; card.appendChild(n); }
       else {
         const detail = document.createElement("div"); detail.className = "detail";
-        const why = homePct >= awayPct ? rankingWhy(m.homeName, m.homeRank, m.awayName, m.awayRank) : rankingWhy(m.awayName, m.awayRank, m.homeName, m.homeRank);
+        const why = homePct >= awayPct ? rankingWhy(m.homeName, homeRank, m.awayName, awayRank) : rankingWhy(m.awayName, awayRank, m.homeName, homeRank);
         detail.innerHTML = '<span class="detail-why">' + why + '</span>';
         attachDetailToggle(card, detail);
       }
@@ -625,7 +655,9 @@ async function computeFootballPicks(){
       ]);
       const schedJson = await schedRes.json();
       const { strengths, leagueAvg } = buildFootballStrengths(entries);
-      const events = extractEspnEvents(schedJson).slice(0, 8);
+      const events = extractEspnEvents(schedJson)
+        .filter(ev => strengths[ev.homeName] && strengths[ev.awayName])
+        .slice(0, 8);
       events.forEach(ev => {
         const home = strengths[ev.homeName], away = strengths[ev.awayName];
         if(!home || !away) return;
@@ -726,7 +758,8 @@ async function computeBaseballPicks(){
     const schedJson = await (await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=" + start + "&endDate=" + isoDate(endD))).json();
     const games = [];
     (schedJson.dates || []).forEach(d => (d.games || []).forEach(g => games.push(g)));
-    games.forEach(g => {
+    const upcoming = games.filter(g => !g.status || g.status.abstractGameState === "Preview");
+    upcoming.forEach(g => {
       const homeName = g.teams.home.team.name, awayName = g.teams.away.team.name;
       const h = strengths[homeName], a = strengths[awayName];
       if(!h || !a) return;
@@ -748,14 +781,19 @@ async function computeBaseballPicks(){
 async function computeTennisPicks(){
   const picks = [];
   try{
-    const json = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard")).json();
+    const [json, rankMap] = await Promise.all([
+      (await fetch("https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard")).json(),
+      fetchAtpRankMap()
+    ]);
     extractEspnEvents(json).forEach(m => {
-      if(!m.homeRank || !m.awayRank) return;
-      const p = Math.round(logistic(Number(m.awayRank) - Number(m.homeRank), 8)*100);
+      const homeRank = m.homeRank || rankMap[m.homeName];
+      const awayRank = m.awayRank || rankMap[m.awayName];
+      if(!homeRank || !awayRank) return;
+      const p = Math.round(logistic(Number(awayRank) - Number(homeRank), 8)*100);
       const pickHome = p >= 50;
       picks.push({ sport: "Tenis ATP", home: m.homeName, away: m.awayName, homeLogo: m.homeLogo, awayLogo: m.awayLogo,
         date: m.date, venue: "", pickTeam: pickHome ? m.homeName : m.awayName, pickPct: pickHome ? p : 100-p,
-        why: pickHome ? rankingWhy(m.homeName, m.homeRank, m.awayName, m.awayRank) : rankingWhy(m.awayName, m.awayRank, m.homeName, m.homeRank) });
+        why: pickHome ? rankingWhy(m.homeName, homeRank, m.awayName, awayRank) : rankingWhy(m.awayName, awayRank, m.homeName, homeRank) });
     });
   } catch(e){}
   return picks;
@@ -773,19 +811,21 @@ function renderPickCard(p){
 async function loadPicks(){
   const checks = Array.from(document.querySelectorAll('.sport-checks input[type=checkbox][value]:checked')).map(c => c.value);
   if(checks.length === 0){ setStatus("picks", "Selecciona al menos un deporte."); return; }
-  const todayOnly = el("picks-today-only").checked;
+  const dateFilter = el("picks-date-filter").value;
   setStatus("picks", "Calculando picks...");
   const list = el("picks-list"); list.innerHTML = "";
   const computers = { football: computeFootballPicks, basketball: computeBasketballPicks, baseball: computeBaseballPicks, tennis: computeTennisPicks, nfl: computeNFLPicks };
   try{
     const results = await Promise.all(checks.map(s => computers[s]()));
     let all = results.flat();
-    if(todayOnly) all = all.filter(p => isToday(p.date));
+    if(dateFilter === "today") all = all.filter(p => isToday(p.date));
+    else if(dateFilter === "tomorrow") all = all.filter(p => isTomorrow(p.date));
     all.sort((a,b) => b.pickPct - a.pickPct);
     all = all.slice(0, 15);
-    if(all.length === 0){ list.innerHTML = '<div class="status">' + (todayOnly ? "No hay partidos con datos suficientes programados para hoy en los deportes seleccionados." : "No hay suficientes datos todavía para generar picks con los deportes seleccionados.") + '</div>'; }
+    const filterLabel = dateFilter === "today" ? "hoy" : dateFilter === "tomorrow" ? "mañana" : null;
+    if(all.length === 0){ list.innerHTML = '<div class="status">' + (filterLabel ? "No hay partidos con datos suficientes programados para " + filterLabel + " en los deportes seleccionados." : "No hay suficientes datos todavía para generar picks con los deportes seleccionados.") + '</div>'; }
     else all.forEach(p => list.appendChild(renderPickCard(p)));
-    setStatus("picks", "Actualizado — " + all.length + " picks de " + checks.length + " deporte(s)" + (todayOnly ? " (solo hoy)." : "."));
+    setStatus("picks", "Actualizado — " + all.length + " picks de " + checks.length + " deporte(s)" + (filterLabel ? " (" + filterLabel + ")." : "."));
   } catch(err){ setStatus("picks", "Error: " + err.message); }
 }
 
