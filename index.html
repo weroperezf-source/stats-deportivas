@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Estadísticas y predicciones multideporte — MVP</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --border:#272b34; --text:#e8eaed; --muted:#9aa0aa;
+    --accent:#4c8dff; --green:#3ecf8e; --amber:#f0a83a; --red:#f0575a;
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--bg); color:var(--text); font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; margin:0; padding:24px;}
+  .wrap{max-width:980px; margin:0 auto;}
+  h1{font-size:22px; font-weight:600; margin:0 0 4px;}
+  .sub{color:var(--muted); font-size:13px; margin:0 0 18px;}
+  .sport-tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  .sport-tab{padding:9px 16px; border-radius:8px; cursor:pointer; border:1px solid var(--border); font-size:13px; color:var(--muted); background:var(--card);}
+  .sport-tab.active{color:var(--text); border-color:var(--accent); background:rgba(76,141,255,0.12);}
+  .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px;}
+  select, input, button{background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:14px;}
+  button{cursor:pointer;}
+  button:hover{border-color:var(--accent);}
+  .subtabs{display:flex; gap:8px; margin-bottom:14px;}
+  .subtab{padding:7px 13px; border-radius:8px; cursor:pointer; border:1px solid var(--border); font-size:12px; color:var(--muted);}
+  .subtab.active{color:var(--text); border-color:var(--accent); background:rgba(76,141,255,0.1);}
+  .subpanel{display:none;}
+  .subpanel.active{display:block;}
+  .sport-panel{display:none;}
+  .sport-panel.active{display:block;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th, td{padding:8px 6px; text-align:left; border-bottom:1px solid var(--border);}
+  th{color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase;}
+  td.num{text-align:center;}
+  img.badge{width:20px; height:20px; object-fit:contain; vertical-align:middle; margin-right:6px; border-radius:3px;}
+  .form-badge{display:inline-block; width:16px; height:16px; border-radius:3px; text-align:center; line-height:16px; font-size:10px; margin-right:2px; font-weight:600;}
+  .form-W{background:rgba(62,207,142,0.2); color:var(--green);}
+  .form-D{background:rgba(240,168,58,0.2); color:var(--amber);}
+  .form-L{background:rgba(240,87,90,0.2); color:var(--red);}
+  .match-card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px;}
+  .match-top{display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted); margin-bottom:10px;}
+  .match-teams{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .team{display:flex; align-items:center; gap:8px; font-size:15px; font-weight:500; width:42%;}
+  .team.away{justify-content:flex-end; text-align:right;}
+  .vs{color:var(--muted); font-size:12px;}
+  .prob-bar{display:flex; height:26px; border-radius:6px; overflow:hidden; margin-bottom:6px;}
+  .prob-seg{display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#0f1115;}
+  .prob-labels{display:flex; justify-content:space-between; font-size:11px; color:var(--muted);}
+  .note{font-size:11px; color:var(--muted); margin-top:6px;}
+  .status{color:var(--muted); font-size:13px; padding:10px 0;}
+  .footer-note{margin-top:28px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); line-height:1.6;}
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Estadísticas y predicciones multideporte</h1>
+  <p class="sub">MVP funcional — datos en vivo desde fuentes públicas gratuitas (TheSportsDB, MLB Stats API, ESPN). Parte del plan de arquitectura de la plataforma completa.</p>
+
+  <div class="sport-tabs">
+    <div class="sport-tab active" data-sport="football">Fútbol</div>
+    <div class="sport-tab" data-sport="basketball">Baloncesto (NBA)</div>
+    <div class="sport-tab" data-sport="baseball">Béisbol (MLB)</div>
+    <div class="sport-tab" data-sport="tennis">Tenis (ATP)</div>
+    <div class="sport-tab" data-sport="nfl">NFL</div>
+  </div>
+
+  <div id="sport-football" class="sport-panel active">
+    <div class="controls">
+      <select id="league"></select>
+      <button id="football-reload">Actualizar</button>
+      <span id="football-status" class="status"></span>
+    </div>
+    <div class="subtabs">
+      <div class="subtab active" data-target="football-table">Tabla y estadísticas</div>
+      <div class="subtab" data-target="football-matches">Próximos partidos y predicciones</div>
+    </div>
+    <div id="football-table" class="subpanel active">
+      <table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">E</th><th class="num">P</th><th class="num">GF</th><th class="num">GC</th><th class="num">DG</th><th class="num">Pts</th></tr></thead><tbody id="football-table-body"></tbody></table>
+    </div>
+    <div id="football-matches" class="subpanel"><div id="football-matches-list"></div></div>
+  </div>
+
+  <div id="sport-basketball" class="sport-panel">
+    <div class="controls"><button id="basketball-reload">Actualizar</button><span id="basketball-status" class="status"></span></div>
+    <div class="subtabs">
+      <div class="subtab active" data-target="basketball-table">Tabla y estadísticas</div>
+      <div class="subtab" data-target="basketball-matches">Próximos partidos y predicciones</div>
+    </div>
+    <div id="basketball-table" class="subpanel active">
+      <table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">PF</th><th class="num">PC</th><th class="num">DIF</th><th class="num">%G</th></tr></thead><tbody id="basketball-table-body"></tbody></table>
+    </div>
+    <div id="basketball-matches" class="subpanel"><div id="basketball-matches-list"></div></div>
+  </div>
+
+  <div id="sport-baseball" class="sport-panel">
+    <div class="controls"><button id="baseball-reload">Actualizar</button><span id="baseball-status" class="status"></span></div>
+    <div class="subtabs">
+      <div class="subtab active" data-target="baseball-table">Tabla y estadísticas</div>
+      <div class="subtab" data-target="baseball-matches">Próximos partidos y predicciones</div>
+    </div>
+    <div id="baseball-table" class="subpanel active">
+      <table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">CA</th><th class="num">CP</th><th class="num">DIF</th><th class="num">%G</th><th>Racha</th></tr></thead><tbody id="baseball-table-body"></tbody></table>
+    </div>
+    <div id="baseball-matches" class="subpanel"><div id="baseball-matches-list"></div></div>
+  </div>
+
+  <div id="sport-tennis" class="sport-panel">
+    <div class="controls"><button id="tennis-reload">Actualizar</button><span id="tennis-status" class="status"></span></div>
+    <p class="note">El tenis es un deporte individual: no tiene tabla de posiciones por equipo. Se muestran los próximos partidos con predicción basada en el ranking ATP de cada jugador, cuando está disponible.</p>
+    <div id="tennis-matches-list"></div>
+  </div>
+
+  <div id="sport-nfl" class="sport-panel">
+    <div class="controls"><button id="nfl-reload">Actualizar</button><span id="nfl-status" class="status"></span></div>
+    <div class="subtabs">
+      <div class="subtab active" data-target="nfl-table">Tabla y estadísticas</div>
+      <div class="subtab" data-target="nfl-matches">Próximos partidos y predicciones</div>
+    </div>
+    <div id="nfl-table" class="subpanel active">
+      <table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">PF</th><th class="num">PC</th><th class="num">DIF</th><th class="num">%G</th></tr></thead><tbody id="nfl-table-body"></tbody></table>
+    </div>
+    <div id="nfl-matches" class="subpanel"><div id="nfl-matches-list"></div></div>
+  </div>
+
+  <div class="footer-note">
+    Modelos de predicción por deporte: fútbol y béisbol usan una distribución de Poisson sobre goles/carreras esperadas a partir de la fuerza de ataque/defensa relativa; baloncesto y NFL usan un modelo logístico sobre el diferencial de puntos por partido; tenis usa un modelo logístico sobre la diferencia de ranking ATP. Todos incluyen ajuste por ventaja de localía. Son modelos simplificados de demostración — la versión de producción incorporaría xG/xP a nivel de partido, lesiones y más histórico (ver plan de arquitectura completo).
+  </div>
+</div>
+
+<script>
+const state = { loaded: {} };
+
+function el(id){ return document.getElementById(id); }
+function setStatus(sport, msg){ const e = el(sport + "-status"); if(e) e.textContent = msg || ""; }
+function ymd(d){ return d.toISOString().slice(0,10).replace(/-/g,""); }
+function dateRangeParam(daysAhead){ const s=new Date(); const e=new Date(); e.setDate(e.getDate()+daysAhead); return ymd(s) + "-" + ymd(e); }
+function isoDate(d){ return d.toISOString().slice(0,10); }
+
+function poissonPmf(k, lambda){ return Math.exp(-lambda) * Math.pow(lambda, k) / factorial(k); }
+function factorial(n){ let r = 1; for(let i=2;i<=n;i++) r*=i; return r; }
+function logistic(diff, scale){ return 1/(1+Math.exp(-diff/scale)); }
+
+function predictPoisson(expHome, expAway){
+  const MAXG = 9;
+  let pHome=0, pDraw=0, pAway=0;
+  for(let i=0;i<=MAXG;i++){
+    for(let j=0;j<=MAXG;j++){
+      const p = poissonPmf(i, expHome) * poissonPmf(j, expAway);
+      if(i>j) pHome+=p; else if(i===j) pDraw+=p; else pAway+=p;
+    }
+  }
+  const total = pHome+pDraw+pAway;
+  return { home: pHome/total, draw: pDraw/total, away: pAway/total };
+}
+function removeDraw(pred){
+  const denom = pred.home + pred.away;
+  return { home: pred.home + pred.draw*(pred.home/denom), draw: 0, away: pred.away + pred.draw*(pred.away/denom) };
+}
+
+function renderProbBar(containerEl, homePct, drawPct, awayPct, hasDraw){
+  const bar = document.createElement("div"); bar.className = "prob-bar";
+  bar.innerHTML =
+    '<div class="prob-seg" style="width:' + homePct + '%; background:#4c8dff;">' + (homePct>=8?homePct+'%':'') + '</div>' +
+    (hasDraw ? '<div class="prob-seg" style="width:' + drawPct + '%; background:#9aa0aa;">' + (drawPct>=8?drawPct+'%':'') + '</div>' : '') +
+    '<div class="prob-seg" style="width:' + awayPct + '%; background:#f0a83a;">' + (awayPct>=8?awayPct+'%':'') + '</div>';
+  containerEl.appendChild(bar);
+  const labels = document.createElement("div"); labels.className = "prob-labels";
+  labels.innerHTML = hasDraw
+    ? '<span>Local ' + homePct + '%</span><span>Empate ' + drawPct + '%</span><span>Visita ' + awayPct + '%</span>'
+    : '<span>Local ' + homePct + '%</span><span>Visita ' + awayPct + '%</span>';
+  containerEl.appendChild(labels);
+}
+
+function matchCardHTML(dateLabel, venue, homeName, awayName, homeLogo, awayLogo){
+  const div = document.createElement("div"); div.className = "match-card";
+  div.innerHTML =
+    '<div class="match-top"><span>' + dateLabel + '</span><span>' + (venue||"") + '</span></div>' +
+    '<div class="match-teams">' +
+      '<div class="team"><img class="badge" src="' + (homeLogo||"") + '" onerror="this.style.display=\'none\'">' + homeName + '</div>' +
+      '<div class="vs">vs</div>' +
+      '<div class="team away">' + awayName + '<img class="badge" src="' + (awayLogo||"") + '" onerror="this.style.display=\'none\'" style="margin-right:0;margin-left:6px;"></div>' +
+    '</div>';
+  return div;
+}
+
+/* ---------- helpers to explore ESPN JSON shapes defensively ---------- */
+function getStat(statMap, names, def){
+  for(const n of names){
+    if(statMap[n] !== undefined && statMap[n] !== null && statMap[n] !== ""){
+      const v = Number(statMap[n]);
+      if(!Number.isNaN(v)) return v;
+    }
+  }
+  return def;
+}
+function extractEspnStandings(json){
+  const results = [];
+  function walk(node){
+    if(!node || typeof node !== "object") return;
+    if(Array.isArray(node)){ node.forEach(walk); return; }
+    if(node.team && Array.isArray(node.stats)){
+      const statMap = {};
+      node.stats.forEach(s => { if(s && s.name !== undefined) statMap[s.name] = (s.value !== undefined ? s.value : s.displayValue); });
+      results.push({ name: node.team.displayName || node.team.name || "?", logo: (node.team.logos && node.team.logos[0] && node.team.logos[0].href) || node.team.logo || "", stats: statMap });
+    }
+    Object.values(node).forEach(walk);
+  }
+  walk(json);
+  return results;
+}
+function realGamesPlayed(entries){
+  if(entries.length === 0) return 0;
+  const total = entries.reduce((s,e) => s + getStat(e.stats, ["wins"], 0) + getStat(e.stats, ["losses"], 0) + getStat(e.stats, ["ties"], 0), 0);
+  return total / entries.length;
+}
+async function fetchEspnStandingsSmart(url){
+  let entries = extractEspnStandings(await (await fetch(url)).json());
+  if(realGamesPlayed(entries) < 3){
+    const fallbackYear = new Date().getFullYear() - 1;
+    const url2 = url + (url.includes("?") ? "&" : "?") + "season=" + fallbackYear;
+    const entries2 = extractEspnStandings(await (await fetch(url2)).json());
+    if(realGamesPlayed(entries2) > realGamesPlayed(entries)) entries = entries2;
+  }
+  return entries;
+}
+function extractEspnEvents(json){
+  const out = [];
+  (json.events || []).forEach(ev => {
+    const comp = ev.competitions && ev.competitions[0];
+    if(!comp) return;
+    const competitors = comp.competitors || [];
+    const home = competitors.find(c => c.homeAway === "home");
+    const away = competitors.find(c => c.homeAway === "away");
+    if(!home || !away) return;
+    out.push({
+      date: ev.date, venue: comp.venue && comp.venue.fullName,
+      homeName: (home.team && (home.team.displayName || home.team.name)) || (home.athlete && home.athlete.displayName) || "?",
+      awayName: (away.team && (away.team.displayName || away.team.name)) || (away.athlete && away.athlete.displayName) || "?",
+      homeLogo: (home.team && home.team.logo) || (home.athlete && home.athlete.headshot && home.athlete.headshot.href) || "",
+      awayLogo: (away.team && away.team.logo) || (away.athlete && away.athlete.headshot && away.athlete.headshot.href) || "",
+      homeRank: home.curatedRank && home.curatedRank.current,
+      awayRank: away.curatedRank && away.curatedRank.current,
+      status: comp.status && comp.status.type && comp.status.type.description
+    });
+  });
+  return out;
+}
+function fmtDate(iso){
+  try{ const d = new Date(iso); return d.toLocaleDateString("es-ES", { day:"2-digit", month:"short" }) + " " + d.toLocaleTimeString("es-ES", { hour:"2-digit", minute:"2-digit" }); }
+  catch(e){ return iso || ""; }
+}
+
+/* ---------- FÚTBOL ---------- */
+const LEAGUES = [
+  { slug: "eng.1", name: "Premier League (Inglaterra)" },
+  { slug: "esp.1", name: "La Liga (España)" },
+  { slug: "ita.1", name: "Serie A (Italia)" },
+  { slug: "ger.1", name: "Bundesliga (Alemania)" },
+  { slug: "fra.1", name: "Ligue 1 (Francia)" },
+  { slug: "usa.1", name: "MLS (Estados Unidos)" },
+  { slug: "mex.1", name: "Liga MX (México)" },
+  { slug: "uefa.champions", name: "UEFA Champions League" },
+  { slug: "concacaf.leagues.cup", name: "Leagues Cup" }
+];
+function buildFootballStrengths(entries){
+  let totalGF = 0, totalPlayed = 0;
+  const parsed = entries.map(e => {
+    const wins = getStat(e.stats, ["wins"], 0), losses = getStat(e.stats, ["losses"], 0), ties = getStat(e.stats, ["ties"], 0);
+    const played = getStat(e.stats, ["gamesPlayed"], wins+losses+ties);
+    const gf = getStat(e.stats, ["pointsFor"], 0), ga = getStat(e.stats, ["pointsAgainst"], 0);
+    const pts = getStat(e.stats, ["points"], wins*3+ties);
+    totalGF += gf; totalPlayed += played;
+    return { name: e.name, logo: e.logo, played, wins, losses, ties, gf, ga, pts };
+  });
+  const leagueAvg = totalPlayed > 0 ? totalGF / totalPlayed : 1.3;
+  const strengths = {};
+  parsed.forEach(t => { strengths[t.name] = { attack: (t.gf/(t.played||1))/leagueAvg, defense: (t.ga/(t.played||1))/leagueAvg, formMult: 1 }; });
+  return { strengths, leagueAvg, parsed };
+}
+function renderFootballStandings(parsed){
+  const tbody = el("football-table-body"); tbody.innerHTML = "";
+  parsed.sort((a,b) => b.pts - a.pts).forEach((t,i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      '<td>' + (i+1) + '</td>' +
+      '<td><img class="badge" src="' + (t.logo||"") + '" onerror="this.style.display=\'none\'">' + t.name + '</td>' +
+      '<td class="num">' + t.played + '</td><td class="num">' + t.wins + '</td><td class="num">' + t.ties + '</td><td class="num">' + t.losses + '</td>' +
+      '<td class="num">' + t.gf + '</td><td class="num">' + t.ga + '</td><td class="num">' + (t.gf-t.ga) + '</td><td class="num">' + t.pts + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+function renderFootballMatches(events, strengths, leagueAvg){
+  const list = el("football-matches-list"); list.innerHTML = "";
+  if(!events || events.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos programados para esta liga en este momento.</div>'; return; }
+  events.forEach(ev => {
+    const home = strengths[ev.homeName] || { attack:1, defense:1, formMult:1 };
+    const away = strengths[ev.awayName] || { attack:1, defense:1, formMult:1 };
+    const expHome = leagueAvg * 1.3 * home.attack * home.formMult * away.defense;
+    const expAway = leagueAvg * 0.85 * away.attack * away.formMult * home.defense;
+    const pred = predictPoisson(Number.isFinite(expHome) ? expHome : leagueAvg, Number.isFinite(expAway) ? expAway : leagueAvg);
+    let homePct = Math.round(pred.home*100), drawPct = Math.round(pred.draw*100), awayPct = 100 - homePct - drawPct;
+    const validPct = Number.isFinite(homePct) && Number.isFinite(drawPct) && Number.isFinite(awayPct);
+    if(!validPct){ homePct = 40; drawPct = 25; awayPct = 35; }
+    const card = matchCardHTML(fmtDate(ev.date), ev.venue, ev.homeName, ev.awayName, ev.homeLogo, ev.awayLogo);
+    renderProbBar(card, homePct, drawPct, awayPct, true);
+    const dataAvailable = !!strengths[ev.homeName] && !!strengths[ev.awayName];
+    if(!validPct){ const n = document.createElement("div"); n.className="note"; n.textContent="Datos insuficientes para esta competición — probabilidad orientativa."; card.appendChild(n); }
+    else if(!dataAvailable){ const n = document.createElement("div"); n.className="note"; n.textContent="Uno de los equipos no tiene datos históricos en esta temporada — se usó fuerza promedio de liga."; card.appendChild(n); }
+    list.appendChild(card);
+  });
+}
+async function loadFootball(){
+  const slug = el("league").value;
+  setStatus("football", "Cargando...");
+  try{
+    const [entries, schedRes] = await Promise.all([
+      fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/soccer/" + slug + "/standings"),
+      fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/" + slug + "/scoreboard?dates=" + dateRangeParam(45))
+    ]);
+    const schedJson = await schedRes.json();
+    const { strengths, leagueAvg, parsed } = buildFootballStrengths(entries);
+    renderFootballStandings(parsed);
+
+    const events = extractEspnEvents(schedJson).slice(0, 20);
+    renderFootballMatches(events, strengths, leagueAvg);
+
+    setStatus("football", (entries.length === 0 ? "Sin tabla disponible para esta competición (formato copa). " : "Actualizado — " + entries.length + " equipos. ") + events.length + " próximos partidos.");
+  } catch(err){ setStatus("football", "Error: " + err.message); }
+}
+
+/* ---------- BALONCESTO (NBA) ---------- */
+async function loadBasketball(){
+  setStatus("basketball", "Cargando...");
+  try{
+    const [entries, schedRes] = await Promise.all([
+      fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1"),
+      fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=" + dateRangeParam(45))
+    ]);
+    const schedJson = await schedRes.json();
+    const strengths = {};
+    const tbody = el("basketball-table-body"); tbody.innerHTML = "";
+    entries.sort((a,b) => (b.stats.winPercent||0) - (a.stats.winPercent||0)).forEach((e,i) => {
+      const wins = getStat(e.stats, ["wins"], 0), losses = getStat(e.stats, ["losses"], 0);
+      const played = getStat(e.stats, ["gamesPlayed"], wins+losses) || 1;
+      let pf = getStat(e.stats, ["avgPointsFor"], null); if(pf===null) pf = getStat(e.stats, ["pointsFor"], 0) / played;
+      let pa = getStat(e.stats, ["avgPointsAgainst"], null); if(pa===null) pa = getStat(e.stats, ["pointsAgainst"], 0) / played;
+      const winPct = getStat(e.stats, ["winPercent"], played ? wins/played : 0);
+      strengths[e.name] = { net: pf - pa };
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td>' + (i+1) + '</td><td><img class="badge" src="' + e.logo + '" onerror="this.style.display=\'none\'">' + e.name + '</td>' +
+        '<td class="num">' + played + '</td><td class="num">' + wins + '</td><td class="num">' + losses + '</td>' +
+        '<td class="num">' + pf.toFixed(1) + '</td><td class="num">' + pa.toFixed(1) + '</td><td class="num">' + (pf-pa).toFixed(1) + '</td><td class="num">' + (winPct*100).toFixed(1) + '%</td>';
+      tbody.appendChild(tr);
+    });
+    const games = extractEspnEvents(schedJson);
+    const list = el("basketball-matches-list"); list.innerHTML = "";
+    if(games.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos en los próximos días.</div>'; }
+    games.forEach(g => {
+      const h = strengths[g.homeName] || { net: 0 }; const a = strengths[g.awayName] || { net: 0 };
+      const diff = (h.net - a.net) + 2.5;
+      const pHome = logistic(diff, 10);
+      const homePct = Math.round(pHome*100), awayPct = 100-homePct;
+      const card = matchCardHTML(fmtDate(g.date), g.venue, g.homeName, g.awayName, g.homeLogo, g.awayLogo);
+      renderProbBar(card, homePct, 0, awayPct, false);
+      if(!strengths[g.homeName] || !strengths[g.awayName]){ const n=document.createElement("div"); n.className="note"; n.textContent="Datos de temporada limitados para uno de los equipos — estimación aproximada."; card.appendChild(n); }
+      list.appendChild(card);
+    });
+    setStatus("basketball", "Actualizado — " + entries.length + " equipos, " + games.length + " próximos partidos.");
+  } catch(err){ setStatus("basketball", "Error al cargar datos: " + err.message); }
+}
+
+/* ---------- BÉISBOL (MLB) ---------- */
+async function loadBaseball(){
+  setStatus("baseball", "Cargando...");
+  try{
+    const year = new Date().getFullYear();
+    const standRes = await fetch("https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=" + year);
+    const standJson = await standRes.json();
+    const rows = [];
+    (standJson.records || []).forEach(rec => (rec.teamRecords || []).forEach(tr => rows.push(tr)));
+    const strengths = {}; let totalRuns=0, totalPlayed=0;
+    rows.forEach(tr => { totalRuns += Number(tr.runsScored)||0; totalPlayed += Number(tr.gamesPlayed)||0; });
+    const leagueAvg = totalPlayed>0 ? totalRuns/totalPlayed : 4.3;
+    rows.sort((a,b) => (b.winningPercentage||0) - (a.winningPercentage||0));
+    const tbody = el("baseball-table-body"); tbody.innerHTML = "";
+    rows.forEach((tr,i) => {
+      const played = Number(tr.gamesPlayed)||1;
+      const rs = Number(tr.runsScored)||0, ra = Number(tr.runsAllowed)||0;
+      const name = tr.team.name;
+      strengths[name] = { attack: (rs/played)/leagueAvg, defense: (ra/played)/leagueAvg };
+      const row = document.createElement("tr");
+      row.innerHTML = '<td>' + (i+1) + '</td><td>' + name + '</td>' +
+        '<td class="num">' + played + '</td><td class="num">' + tr.wins + '</td><td class="num">' + tr.losses + '</td>' +
+        '<td class="num">' + rs + '</td><td class="num">' + ra + '</td><td class="num">' + (rs-ra) + '</td>' +
+        '<td class="num">' + (Number(tr.winningPercentage||0)*100).toFixed(1) + '%</td><td>' + (tr.streak ? tr.streak.streakCode : "") + '</td>';
+      tbody.appendChild(row);
+    });
+    const start = isoDate(new Date()); const endD = new Date(); endD.setDate(endD.getDate()+7);
+    const schedRes = await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=" + start + "&endDate=" + isoDate(endD));
+    const schedJson = await schedRes.json();
+    const games = [];
+    (schedJson.dates || []).forEach(d => (d.games || []).forEach(g => games.push(g)));
+    const list = el("baseball-matches-list"); list.innerHTML = "";
+    if(games.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos en los próximos 7 días.</div>'; }
+    games.slice(0, 25).forEach(g => {
+      const homeName = g.teams.home.team.name, awayName = g.teams.away.team.name;
+      const h = strengths[homeName] || { attack:1, defense:1 }; const a = strengths[awayName] || { attack:1, defense:1 };
+      const expHome = leagueAvg * 1.08 * h.attack * a.defense;
+      const expAway = leagueAvg * 0.94 * a.attack * h.defense;
+      const pred = removeDraw(predictPoisson(expHome, expAway));
+      const homePct = Math.round(pred.home*100), awayPct = 100-homePct;
+      const card = matchCardHTML(fmtDate(g.gameDate), g.venue && g.venue.name, homeName, awayName, "", "");
+      renderProbBar(card, homePct, 0, awayPct, false);
+      if(!strengths[homeName] || !strengths[awayName]){ const n=document.createElement("div"); n.className="note"; n.textContent="Datos limitados para uno de los equipos — estimación aproximada."; card.appendChild(n); }
+      list.appendChild(card);
+    });
+    setStatus("baseball", "Actualizado — " + rows.length + " equipos, " + games.length + " próximos partidos.");
+  } catch(err){ setStatus("baseball", "Error al cargar datos: " + err.message); }
+}
+
+/* ---------- TENIS (ATP) ---------- */
+async function loadTennis(){
+  setStatus("tennis", "Cargando...");
+  try{
+    const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard");
+    const json = await res.json();
+    const matches = extractEspnEvents(json);
+    const list = el("tennis-matches-list"); list.innerHTML = "";
+    if(matches.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos ATP disponibles en este momento.</div>'; }
+    matches.forEach(m => {
+      const card = matchCardHTML(fmtDate(m.date) + (m.status ? " · " + m.status : ""), "", m.homeName, m.awayName, m.homeLogo, m.awayLogo);
+      let homePct = 50, awayPct = 50, hasData = false;
+      if(m.homeRank && m.awayRank){
+        const p = logistic(Number(m.awayRank) - Number(m.homeRank), 8);
+        homePct = Math.round(p*100); awayPct = 100-homePct; hasData = true;
+      }
+      renderProbBar(card, homePct, 0, awayPct, false);
+      if(!hasData){ const n=document.createElement("div"); n.className="note"; n.textContent="Ranking ATP no disponible para este partido — probabilidad 50/50 por defecto."; card.appendChild(n); }
+      list.appendChild(card);
+    });
+    setStatus("tennis", "Actualizado — " + matches.length + " próximos partidos.");
+  } catch(err){ setStatus("tennis", "Error al cargar datos: " + err.message); }
+}
+
+/* ---------- NFL ---------- */
+async function loadNFL(){
+  setStatus("nfl", "Cargando...");
+  try{
+    const [entries, schedRes] = await Promise.all([
+      fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/football/nfl/standings?level=1"),
+      fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=" + dateRangeParam(45))
+    ]);
+    const schedJson = await schedRes.json();
+    const strengths = {};
+    const tbody = el("nfl-table-body"); tbody.innerHTML = "";
+    entries.sort((a,b) => (b.stats.winPercent||0) - (a.stats.winPercent||0)).forEach((e,i) => {
+      const wins = getStat(e.stats, ["wins"], 0), losses = getStat(e.stats, ["losses"], 0);
+      const played = getStat(e.stats, ["gamesPlayed"], wins+losses) || 1;
+      let pf = getStat(e.stats, ["avgPointsFor"], null); if(pf===null) pf = getStat(e.stats, ["pointsFor"], 0) / played;
+      let pa = getStat(e.stats, ["avgPointsAgainst"], null); if(pa===null) pa = getStat(e.stats, ["pointsAgainst"], 0) / played;
+      const winPct = getStat(e.stats, ["winPercent"], played ? wins/played : 0);
+      strengths[e.name] = { net: pf - pa };
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td>' + (i+1) + '</td><td><img class="badge" src="' + e.logo + '" onerror="this.style.display=\'none\'">' + e.name + '</td>' +
+        '<td class="num">' + played + '</td><td class="num">' + wins + '</td><td class="num">' + losses + '</td>' +
+        '<td class="num">' + pf.toFixed(1) + '</td><td class="num">' + pa.toFixed(1) + '</td><td class="num">' + (pf-pa).toFixed(1) + '</td><td class="num">' + (winPct*100).toFixed(1) + '%</td>';
+      tbody.appendChild(tr);
+    });
+    const games = extractEspnEvents(schedJson);
+    const list = el("nfl-matches-list"); list.innerHTML = "";
+    if(games.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos programados en este momento (posible receso de temporada).</div>'; }
+    games.forEach(g => {
+      const h = strengths[g.homeName] || { net: 0 }; const a = strengths[g.awayName] || { net: 0 };
+      const diff = (h.net - a.net) + 2;
+      const pHome = logistic(diff, 13);
+      const homePct = Math.round(pHome*100), awayPct = 100-homePct;
+      const card = matchCardHTML(fmtDate(g.date), g.venue, g.homeName, g.awayName, g.homeLogo, g.awayLogo);
+      renderProbBar(card, homePct, 0, awayPct, false);
+      if(!strengths[g.homeName] || !strengths[g.awayName]){ const n=document.createElement("div"); n.className="note"; n.textContent="Datos de temporada limitados (pretemporada o equipo sin historial) — estimación aproximada."; card.appendChild(n); }
+      list.appendChild(card);
+    });
+    setStatus("nfl", "Actualizado — " + entries.length + " equipos, " + games.length + " próximos partidos.");
+  } catch(err){ setStatus("nfl", "Error al cargar datos: " + err.message); }
+}
+
+/* ---------- UI wiring ---------- */
+function initControls(){
+  const sel = el("league");
+  LEAGUES.forEach(l => { const opt = document.createElement("option"); opt.value = l.slug; opt.textContent = l.name; sel.appendChild(opt); });
+  sel.addEventListener("change", loadFootball);
+
+  document.querySelectorAll(".subtab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      const parent = tab.closest(".sport-panel");
+      parent.querySelectorAll(".subtab").forEach(t => t.classList.remove("active"));
+      parent.querySelectorAll(".subpanel").forEach(p => p.classList.remove("active"));
+      tab.classList.add("active");
+      el(tab.dataset.target).classList.add("active");
+    });
+  });
+
+  const loaders = { football: loadFootball, basketball: loadBasketball, baseball: loadBaseball, tennis: loadTennis, nfl: loadNFL };
+  document.querySelectorAll(".sport-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".sport-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".sport-panel").forEach(p => p.classList.remove("active"));
+      tab.classList.add("active");
+      const sport = tab.dataset.sport;
+      el("sport-" + sport).classList.add("active");
+      if(!state.loaded[sport]){ state.loaded[sport] = true; loaders[sport](); }
+    });
+  });
+
+  el("football-reload").addEventListener("click", loadFootball);
+  el("basketball-reload").addEventListener("click", loadBasketball);
+  el("baseball-reload").addEventListener("click", loadBaseball);
+  el("tennis-reload").addEventListener("click", loadTennis);
+  el("nfl-reload").addEventListener("click", loadNFL);
+}
+
+initControls();
+state.loaded.football = true;
+loadFootball();
+</script>
+</body>
+</html>
