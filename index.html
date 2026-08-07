@@ -61,6 +61,9 @@
   .pick-match{font-size:14px; margin-bottom:4px;}
   .pick-label{font-size:13px; color:var(--text); margin-bottom:4px; font-weight:500;}
   .pick-why{font-size:12px; color:var(--muted);}
+  .combo-summary{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-top:14px; font-size:13px; color:var(--text); line-height:1.6;}
+  .combo-summary .combo-title{font-weight:600; margin-bottom:6px; display:block;}
+  .combo-summary .combo-caveat{font-size:11px; color:var(--muted); display:block; margin-top:6px;}
   .sport-check{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text); cursor:pointer;}
   .sport-checks{display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px;}
   .status{color:var(--muted); font-size:13px; padding:10px 0;}
@@ -159,6 +162,7 @@
       <span id="picks-status" class="status"></span>
     </div>
     <div id="picks-list"></div>
+    <div id="picks-combo" class="note"></div>
   </div>
 
   <div class="footer-note">
@@ -956,15 +960,54 @@ async function computeTennisPicks(){
   } catch(e){}
   return picks;
 }
-function renderPickCard(p){
+function renderPickCard(p, idx){
   const div = document.createElement("div"); div.className = "pick-row";
   const scoreHtml = p.scoreLine ? (' · resultado más probable ' + p.scoreLine) : "";
   div.innerHTML =
-    '<div class="pick-top"><span class="pick-sport">' + p.sport + '</span><span class="pick-pct">' + p.pickPct + '%</span></div>' +
+    '<div class="pick-top"><label class="sport-check" style="gap:8px;"><input type="checkbox" class="pick-combo-check" data-idx="' + idx + '" checked><span class="pick-sport">' + p.sport + '</span></label><span class="pick-pct">' + p.pickPct + '%</span></div>' +
     '<div class="pick-match">' + p.home + ' vs ' + p.away + (p.venue ? ' · ' + p.venue : '') + '</div>' +
     '<div class="pick-label">Pick: ' + p.pickTeam + scoreHtml + '</div>' +
     '<div class="pick-why">' + p.why + '</div>';
   return div;
+}
+/* ---------- Simulación Monte Carlo para combinadas (Picks seguros) ----------
+   Un solo partido ya tiene su probabilidad exacta (Poisson/logístico) — correr 1000
+   simulaciones ahí no aporta nada nuevo. Donde SÍ aporta es al combinar varios picks
+   en una combinada/parlay: la probabilidad de acertarlos TODOS no es simplemente la
+   suma ni el promedio, hay que multiplicar/simular sobre las combinaciones posibles. */
+function simulateComboProbabilities(picks, trials){
+  const n = picks.length;
+  if(n === 0) return null;
+  let allHit = 0, sumCorrect = 0;
+  for(let t = 0; t < trials; t++){
+    let correct = 0;
+    for(let i = 0; i < n; i++){ if(Math.random() < (picks[i].pickPct/100)) correct++; }
+    if(correct === n) allHit++;
+    sumCorrect += correct;
+  }
+  return { n, trials, comboHitPct: (allHit/trials)*100, avgCorrect: sumCorrect/trials };
+}
+function renderComboSummary(picks){
+  const container = el("picks-combo");
+  if(!container) return;
+  if(!picks || picks.length === 0){ container.innerHTML = ""; container.className = "note"; return; }
+  const sim = simulateComboProbabilities(picks, 1000);
+  const analyticExpected = picks.reduce((s,p) => s + p.pickPct/100, 0);
+  const analyticComboPct = picks.reduce((s,p) => s * (p.pickPct/100), 1) * 100;
+  container.className = "combo-summary";
+  container.innerHTML =
+    '<span class="combo-title">Simulación de 1000 escenarios — combinada de ' + sim.n + ' pick' + (sim.n===1?'':'s') + ' seleccionado' + (sim.n===1?'':'s') + '</span>' +
+    'Probabilidad de acertar los ' + sim.n + ' al mismo tiempo: <strong>' + sim.comboHitPct.toFixed(1) + '%</strong> (cálculo exacto: ' + analyticComboPct.toFixed(1) + '%)<br>' +
+    'Aciertos esperados en promedio: <strong>' + sim.avgCorrect.toFixed(1) + ' de ' + sim.n + '</strong> (' + analyticExpected.toFixed(1) + ' de forma analítica)' +
+    '<span class="combo-caveat">Desmarca picks arriba para armar tu propia combinada. Asume que los partidos son independientes entre sí — en la práctica puede haber correlación (mismo clima, mismo árbitro, lesiones relacionadas) que este cálculo no captura.</span>';
+}
+function setupComboUI(all){
+  const getSelected = () => Array.from(document.querySelectorAll('#picks-list .pick-combo-check:checked'))
+    .map(c => all[Number(c.dataset.idx)]).filter(Boolean);
+  document.querySelectorAll('#picks-list .pick-combo-check').forEach(inp => {
+    inp.addEventListener('change', () => renderComboSummary(getSelected()));
+  });
+  renderComboSummary(getSelected());
 }
 async function loadPicks(){
   const checks = Array.from(document.querySelectorAll('.sport-checks input[type=checkbox][value]:checked')).map(c => c.value);
@@ -972,6 +1015,7 @@ async function loadPicks(){
   const dateFilter = el("picks-date-filter").value;
   setStatus("picks", "Calculando picks...");
   const list = el("picks-list"); list.innerHTML = "";
+  el("picks-combo").innerHTML = ""; el("picks-combo").className = "note";
   const computers = { football: computeFootballPicks, basketball: computeBasketballPicks, baseball: computeBaseballPicks, tennis: computeTennisPicks, nfl: computeNFLPicks };
   try{
     const results = await Promise.all(checks.map(s => computers[s]()));
@@ -982,7 +1026,7 @@ async function loadPicks(){
     all = all.slice(0, 15);
     const filterLabel = dateFilter === "today" ? "hoy" : dateFilter === "tomorrow" ? "mañana" : null;
     if(all.length === 0){ list.innerHTML = '<div class="status">' + (filterLabel ? "No hay partidos con datos suficientes programados para " + filterLabel + " en los deportes seleccionados." : "No hay suficientes datos todavía para generar picks con los deportes seleccionados.") + '</div>'; }
-    else all.forEach(p => list.appendChild(renderPickCard(p)));
+    else { all.forEach((p, idx) => list.appendChild(renderPickCard(p, idx))); setupComboUI(all); }
     setStatus("picks", "Actualizado — " + all.length + " picks de " + checks.length + " deporte(s)" + (filterLabel ? " (" + filterLabel + ")." : "."));
   } catch(err){ setStatus("picks", "Error: " + err.message); }
 }
