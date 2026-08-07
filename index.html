@@ -389,17 +389,24 @@ async function fetchEspnRecentFormOnce(sportPath, leagueSlug, teamId){
 const SOCCER_FALLBACK_SLUGS = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "usa.1", "mex.1"];
 async function fetchEspnRecentForm(sportPath, leagueSlug, teamId){
   const first = await fetchEspnRecentFormOnce(sportPath, leagueSlug, teamId);
-  if(first.length > 0 || sportPath !== "soccer") return first;
-  // The team may not have played yet within this specific competition (e.g. a cup just starting) —
-  // fall back to trying its likely domestic league so we still show real recent form.
+  if(sportPath !== "soccer" || first.length >= 10) return first;
+  // A cup/group competition (e.g. Leagues Cup just starting) often only has 1-2 games played
+  // so far — not enough for a real "últimos 10" picture. Supplement with the team's domestic
+  // league results (deduped, most recent first) so the list is actually close to 10 entries.
+  const combined = first.slice();
+  const seen = new Set(combined.map(r => r.date + "|" + r.oppName));
   for(const slug of SOCCER_FALLBACK_SLUGS){
-    if(slug === leagueSlug) continue;
+    if(slug === leagueSlug || combined.length >= 10) continue;
     try{
       const alt = await fetchEspnRecentFormOnce(sportPath, slug, teamId);
-      if(alt.length > 0) return alt;
+      alt.forEach(r => {
+        const key = r.date + "|" + r.oppName;
+        if(!seen.has(key)){ seen.add(key); combined.push(r); }
+      });
     } catch(e){}
   }
-  return first;
+  combined.sort((a,b) => new Date(b.date) - new Date(a.date));
+  return combined.slice(0, 10);
 }
 async function fetchMlbRecentForm(teamId){
   const endD = new Date(); const startD = new Date(); startD.setDate(startD.getDate() - 35);
