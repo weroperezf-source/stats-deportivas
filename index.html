@@ -258,11 +258,27 @@ function realGamesPlayed(entries){
 }
 async function fetchEspnStandingsSmart(url){
   let entries = extractEspnStandings(await (await fetch(url)).json());
-  if(realGamesPlayed(entries) < 3){
-    const fallbackYear = new Date().getFullYear() - 1;
-    const url2 = url + (url.includes("?") ? "&" : "?") + "season=" + fallbackYear;
-    const entries2 = extractEspnStandings(await (await fetch(url2)).json());
-    if(realGamesPlayed(entries2) > realGamesPlayed(entries)) entries = entries2;
+  // Early in a new season (e.g. Liga MX Apertura just 3 games in) a team's current-season
+  // sample can be as thin as a cup competition's — too noisy for attack/defense ratios.
+  // Below MIN_GAMES, blend in the previous season's numbers per-team so a fresh season
+  // start doesn't make otherwise-strong teams look average/weak (or vice versa).
+  const MIN_GAMES = 6;
+  if(realGamesPlayed(entries) < MIN_GAMES){
+    try{
+      const fallbackYear = new Date().getFullYear() - 1;
+      const url2 = url + (url.includes("?") ? "&" : "?") + "season=" + fallbackYear;
+      const entries2 = extractEspnStandings(await (await fetch(url2)).json());
+      const byId = {};
+      entries2.forEach(e => { byId[e.id] = e; });
+      entries = entries.map(e => {
+        const played = getStat(e.stats, ["gamesPlayed"], 0);
+        if(played >= MIN_GAMES) return e;
+        const prev = byId[e.id];
+        if(!prev) return e;
+        const prevPlayed = getStat(prev.stats, ["gamesPlayed"], 0);
+        return prevPlayed > played ? prev : e;
+      });
+    } catch(err){}
   }
   return entries;
 }
