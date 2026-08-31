@@ -703,7 +703,10 @@ async function loadBaseball(){
       const played = Number(tr.gamesPlayed)||1;
       const rs = Number(tr.runsScored)||0, ra = Number(tr.runsAllowed)||0;
       const name = tr.team.name;
-      strengths[name] = { attack: (rs/played)/leagueAvg, defense: (ra/played)/leagueAvg, winPct: Number(tr.winningPercentage)||0.5, id: tr.team.id };
+      // MLB's standings endpoint returns short club names ("Rays") while its schedule endpoint
+      // returns full names ("Tampa Bay Rays") — keying by team id (stable across both) avoids
+      // a silent name-mismatch that was dropping every MLB match from picks/predictions.
+      strengths[String(tr.team.id)] = { attack: (rs/played)/leagueAvg, defense: (ra/played)/leagueAvg, winPct: Number(tr.winningPercentage)||0.5, id: tr.team.id, name };
       const row = document.createElement("tr");
       row.innerHTML = '<td>' + (i+1) + '</td><td>' + name + '</td>' +
         '<td class="num">' + played + '</td><td class="num">' + tr.wins + '</td><td class="num">' + tr.losses + '</td>' +
@@ -721,7 +724,8 @@ async function loadBaseball(){
     if(upcoming.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos en los próximos 7 días.</div>'; }
     upcoming.slice(0, 25).forEach(g => {
       const homeName = g.teams.home.team.name, awayName = g.teams.away.team.name;
-      const h = strengths[homeName] || { attack:1, defense:1, winPct:0.5 }; const a = strengths[awayName] || { attack:1, defense:1, winPct:0.5 };
+      const homeId = String(g.teams.home.team.id), awayId = String(g.teams.away.team.id);
+      const h = strengths[homeId] || { attack:1, defense:1, winPct:0.5 }; const a = strengths[awayId] || { attack:1, defense:1, winPct:0.5 };
       const expHome = leagueAvg * 1.08 * h.attack * a.defense;
       const expAway = leagueAvg * 0.94 * a.attack * h.defense;
       const poissonPct = removeDraw(predictPoisson(expHome, expAway)).home;
@@ -729,7 +733,7 @@ async function loadBaseball(){
       const homePct = Math.round((0.5*poissonPct + 0.5*log5Home)*100), awayPct = 100-homePct;
       const card = matchCardHTML(fmtDate(g.gameDate), g.venue && g.venue.name, homeName, awayName, "", "");
       renderProbBar(card, homePct, 0, awayPct, false);
-      const dataOk = !!strengths[homeName] && !!strengths[awayName];
+      const dataOk = !!strengths[homeId] && !!strengths[awayId];
       if(!dataOk){ const n=document.createElement("div"); n.className="note"; n.textContent="Datos limitados para uno de los equipos — estimación aproximada."; card.appendChild(n); }
       else {
         const detail = document.createElement("div"); detail.className = "detail";
@@ -937,7 +941,10 @@ async function computeBaseballPicks(){
     const leagueAvg = totalPlayed>0 ? totalRuns/totalPlayed : 4.3;
     rows.forEach(tr => {
       const played = Number(tr.gamesPlayed)||1;
-      strengths[tr.team.name] = { attack: (Number(tr.runsScored)||0)/played/leagueAvg, defense: (Number(tr.runsAllowed)||0)/played/leagueAvg, winPct: Number(tr.winningPercentage)||0.5 };
+      // Key by team id, not name: MLB standings uses short club names ("Rays") while the
+      // schedule endpoint uses full names ("Tampa Bay Rays") — a name lookup here silently
+      // dropped every MLB game from picks.
+      strengths[String(tr.team.id)] = { attack: (Number(tr.runsScored)||0)/played/leagueAvg, defense: (Number(tr.runsAllowed)||0)/played/leagueAvg, winPct: Number(tr.winningPercentage)||0.5 };
     });
     const start = isoDate(new Date()); const endD = new Date(); endD.setDate(endD.getDate()+5);
     const schedJson = await (await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=" + start + "&endDate=" + isoDate(endD))).json();
@@ -946,7 +953,7 @@ async function computeBaseballPicks(){
     const upcoming = games.filter(g => !g.status || g.status.abstractGameState === "Preview");
     upcoming.forEach(g => {
       const homeName = g.teams.home.team.name, awayName = g.teams.away.team.name;
-      const h = strengths[homeName], a = strengths[awayName];
+      const h = strengths[String(g.teams.home.team.id)], a = strengths[String(g.teams.away.team.id)];
       if(!h || !a) return;
       const expHome = leagueAvg * 1.08 * h.attack * a.defense;
       const expAway = leagueAvg * 0.94 * a.attack * h.defense;
