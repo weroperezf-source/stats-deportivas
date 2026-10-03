@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Estadísticas y predicciones multideporte — MVP</title>
 <style>
   :root{
@@ -18,26 +19,28 @@
   .sport-tab.active{color:var(--text); border-color:var(--accent); background:rgba(76,141,255,0.12);}
   .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px;}
   select, input, button{background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:14px;}
+  select{max-width:100%;}
   button{cursor:pointer;}
   button:hover{border-color:var(--accent);}
-  .subtabs{display:flex; gap:8px; margin-bottom:14px;}
+  .subtabs{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
   .subtab{padding:7px 13px; border-radius:8px; cursor:pointer; border:1px solid var(--border); font-size:12px; color:var(--muted);}
   .subtab.active{color:var(--text); border-color:var(--accent); background:rgba(76,141,255,0.1);}
   .subpanel{display:none;}
   .subpanel.active{display:block;}
   .sport-panel{display:none;}
   .sport-panel.active{display:block;}
+  .table-scroll{overflow-x:auto;}
   table{width:100%; border-collapse:collapse; font-size:13px;}
   th, td{padding:8px 6px; text-align:left; border-bottom:1px solid var(--border);}
   th{color:var(--muted); font-weight:500; font-size:11px; text-transform:uppercase;}
-  td.num{text-align:center;}
+  td.num, th.num{text-align:center;}
   img.badge{width:20px; height:20px; object-fit:contain; vertical-align:middle; margin-right:6px; border-radius:3px;}
   .form-badge{display:inline-block; width:16px; height:16px; border-radius:3px; text-align:center; line-height:16px; font-size:10px; margin-right:2px; font-weight:600;}
   .form-W{background:rgba(62,207,142,0.2); color:var(--green);}
   .form-D{background:rgba(240,168,58,0.2); color:var(--amber);}
   .form-L{background:rgba(240,87,90,0.2); color:var(--red);}
   .match-card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px;}
-  .match-top{display:flex; justify-content:space-between; align-items:center; font-size:12px; color:var(--muted); margin-bottom:10px;}
+  .match-top{display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:12px; color:var(--muted); margin-bottom:10px;}
   .match-teams{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
   .team{display:flex; align-items:center; gap:8px; font-size:15px; font-weight:500; width:42%;}
   .team.away{justify-content:flex-end; text-align:right;}
@@ -59,6 +62,7 @@
   .pick-sport{font-size:11px; text-transform:uppercase; letter-spacing:0.03em; color:var(--accent); font-weight:600;}
   .pick-pct{font-size:18px; font-weight:600; color:var(--green);}
   .pick-match{font-size:14px; margin-bottom:4px;}
+  .pick-when{font-size:12px; color:var(--muted); margin-bottom:4px;}
   .pick-label{font-size:13px; color:var(--text); margin-bottom:4px; font-weight:500;}
   .pick-why{font-size:12px; color:var(--muted);}
   .combo-summary{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-top:14px; font-size:13px; color:var(--text); line-height:1.6;}
@@ -69,19 +73,21 @@
   .status{color:var(--muted); font-size:13px; padding:10px 0;}
   .footer-note{margin-top:28px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); line-height:1.6;}
   a{color:var(--accent);}
+  @media (max-width:600px){ body{padding:14px;} .team{font-size:13px;} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Estadísticas y predicciones multideporte</h1>
-  <p class="sub">MVP funcional — datos en vivo desde fuentes públicas gratuitas (TheSportsDB, MLB Stats API, ESPN). Parte del plan de arquitectura de la plataforma completa.</p>
+  <p class="sub">MVP funcional — datos en vivo desde fuentes públicas gratuitas (ESPN y MLB Stats API). Parte del plan de arquitectura de la plataforma completa.</p>
 
   <div class="sport-tabs">
     <div class="sport-tab active" data-sport="football">Fútbol</div>
     <div class="sport-tab" data-sport="basketball">Baloncesto (NBA)</div>
     <div class="sport-tab" data-sport="baseball">Béisbol (MLB)</div>
-    <div class="sport-tab" data-sport="tennis">Tenis (ATP)</div>
+    <div class="sport-tab" data-sport="tennis">Tenis (ATP/WTA)</div>
     <div class="sport-tab" data-sport="nfl">NFL</div>
+    <div class="sport-tab" data-sport="hockey">Hockey (NHL)</div>
     <div class="sport-tab" data-sport="picks">Picks seguros</div>
   </div>
 
@@ -96,7 +102,7 @@
       <div class="subtab" data-target="football-matches">Próximos partidos y predicciones</div>
     </div>
     <div id="football-table" class="subpanel active">
-      <table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">E</th><th class="num">P</th><th class="num">GF</th><th class="num">GC</th><th class="num">DG</th><th class="num">Pts</th></tr></thead><tbody id="football-table-body"></tbody></table>
+      <div class="table-scroll"><table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">E</th><th class="num">P</th><th class="num">GF</th><th class="num">GC</th><th class="num">DG</th><th class="num">Pts</th></tr></thead><tbody id="football-table-body"></tbody></table></div>
     </div>
     <div id="football-matches" class="subpanel"><div id="football-matches-list"></div></div>
   </div>
@@ -108,7 +114,7 @@
       <div class="subtab" data-target="basketball-matches">Próximos partidos y predicciones</div>
     </div>
     <div id="basketball-table" class="subpanel active">
-      <table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">PF</th><th class="num">PC</th><th class="num">DIF</th><th class="num">%G</th></tr></thead><tbody id="basketball-table-body"></tbody></table>
+      <div class="table-scroll"><table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">PF</th><th class="num">PC</th><th class="num">DIF</th><th class="num">%G</th></tr></thead><tbody id="basketball-table-body"></tbody></table></div>
     </div>
     <div id="basketball-matches" class="subpanel"><div id="basketball-matches-list"></div></div>
   </div>
@@ -120,14 +126,14 @@
       <div class="subtab" data-target="baseball-matches">Próximos partidos y predicciones</div>
     </div>
     <div id="baseball-table" class="subpanel active">
-      <table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">CA</th><th class="num">CP</th><th class="num">DIF</th><th class="num">%G</th><th>Racha</th></tr></thead><tbody id="baseball-table-body"></tbody></table>
+      <div class="table-scroll"><table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">CA</th><th class="num">CP</th><th class="num">DIF</th><th class="num">%G</th><th>Racha</th></tr></thead><tbody id="baseball-table-body"></tbody></table></div>
     </div>
     <div id="baseball-matches" class="subpanel"><div id="baseball-matches-list"></div></div>
   </div>
 
   <div id="sport-tennis" class="sport-panel">
     <div class="controls"><button id="tennis-reload">Actualizar</button><span id="tennis-status" class="status"></span></div>
-    <p class="note">El tenis es un deporte individual: no tiene tabla de posiciones por equipo. Se muestran los próximos partidos con predicción basada en el ranking ATP de cada jugador, cuando está disponible.</p>
+    <p class="note">El tenis es un deporte individual: no tiene tabla de posiciones por equipo. Se muestran los próximos partidos de individuales (ATP y WTA) con predicción basada en el ranking de cada jugador, cuando está disponible (top 150).</p>
     <div id="tennis-matches-list"></div>
   </div>
 
@@ -138,19 +144,32 @@
       <div class="subtab" data-target="nfl-matches">Próximos partidos y predicciones</div>
     </div>
     <div id="nfl-table" class="subpanel active">
-      <table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">PF</th><th class="num">PC</th><th class="num">DIF</th><th class="num">%G</th></tr></thead><tbody id="nfl-table-body"></tbody></table>
+      <div class="table-scroll"><table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">PF</th><th class="num">PC</th><th class="num">DIF</th><th class="num">%G</th></tr></thead><tbody id="nfl-table-body"></tbody></table></div>
     </div>
     <div id="nfl-matches" class="subpanel"><div id="nfl-matches-list"></div></div>
   </div>
 
+  <div id="sport-hockey" class="sport-panel">
+    <div class="controls"><button id="hockey-reload">Actualizar</button><span id="hockey-status" class="status"></span></div>
+    <div class="subtabs">
+      <div class="subtab active" data-target="hockey-table">Tabla y estadísticas</div>
+      <div class="subtab" data-target="hockey-matches">Próximos partidos y predicciones</div>
+    </div>
+    <div id="hockey-table" class="subpanel active">
+      <div class="table-scroll"><table><thead><tr><th>#</th><th>Equipo</th><th class="num">PJ</th><th class="num">G</th><th class="num">P</th><th class="num">PTE</th><th class="num">GF</th><th class="num">GC</th><th class="num">DIF</th><th class="num">Pts</th></tr></thead><tbody id="hockey-table-body"></tbody></table></div>
+    </div>
+    <div id="hockey-matches" class="subpanel"><div id="hockey-matches-list"></div></div>
+  </div>
+
   <div id="sport-picks" class="sport-panel">
-    <p class="sub" style="margin-top:0;">Junta los partidos de mayor confianza entre los deportes que elijas y explica por qué el modelo favorece a cada lado. Solo incluye partidos con datos históricos suficientes.</p>
+    <p class="sub" style="margin-top:0;">Junta los partidos de mayor confianza entre los deportes que elijas y explica por qué el modelo favorece a cada lado. Solo incluye partidos con datos históricos suficientes (no incluye pretemporada).</p>
     <div class="sport-checks">
       <label class="sport-check"><input type="checkbox" value="football" checked> Fútbol</label>
       <label class="sport-check"><input type="checkbox" value="basketball" checked> Baloncesto (NBA)</label>
       <label class="sport-check"><input type="checkbox" value="baseball" checked> Béisbol (MLB)</label>
-      <label class="sport-check"><input type="checkbox" value="tennis" checked> Tenis (ATP)</label>
+      <label class="sport-check"><input type="checkbox" value="tennis" checked> Tenis (ATP/WTA)</label>
       <label class="sport-check"><input type="checkbox" value="nfl" checked> NFL</label>
+      <label class="sport-check"><input type="checkbox" value="hockey" checked> Hockey (NHL)</label>
     </div>
     <div class="controls">
       <select id="picks-date-filter">
@@ -166,7 +185,7 @@
   </div>
 
   <div class="footer-note">
-    Modelos de predicción por deporte: fútbol y béisbol usan una distribución de Poisson sobre goles/carreras esperadas a partir de la fuerza de ataque/defensa relativa; baloncesto y NFL usan un modelo logístico sobre el diferencial de puntos por partido; tenis usa un modelo logístico sobre la diferencia de ranking ATP. Todos incluyen ajuste por ventaja de localía. Son modelos simplificados de demostración — la versión de producción incorporaría xG/xP a nivel de partido, lesiones y más histórico (ver plan de arquitectura completo).
+    Modelos de predicción por deporte: fútbol de clubes, béisbol y hockey usan una distribución de Poisson sobre goles/carreras esperadas a partir de la fuerza de ataque/defensa relativa (en copas internacionales se usa la fuerza de cada club en su liga local, ajustada con un coeficiente aproximado por nivel de liga); selecciones nacionales usan un rating Elo calculado con sus resultados de los últimos dos años; baloncesto y NFL usan un modelo logístico sobre el diferencial de puntos por partido; tenis usa un modelo logístico sobre la razón de rankings. Todos incluyen ajuste por ventaja de localía y, al inicio de temporada, se apoyan en los números de la temporada anterior. Los parámetros de fútbol, hockey y béisbol se calibraron contra los resultados reales de la temporada anterior. Son modelos simplificados de demostración: no consideran lesiones, alineaciones ni cuotas de mercado, y ningún pronóstico es seguro.
   </div>
 </div>
 
@@ -175,9 +194,12 @@ const state = { loaded: {} };
 
 function el(id){ return document.getElementById(id); }
 function setStatus(sport, msg){ const e = el(sport + "-status"); if(e) e.textContent = msg || ""; }
-function ymd(d){ return d.toISOString().slice(0,10).replace(/-/g,""); }
-function dateRangeParam(daysAhead){ const s=new Date(); const e=new Date(); e.setDate(e.getDate()+daysAhead); return ymd(s) + "-" + ymd(e); }
-function isoDate(d){ return d.toISOString().slice(0,10); }
+function pad2(n){ return String(n).padStart(2, "0"); }
+/* Fechas en hora LOCAL del usuario (antes se usaba UTC y de noche se saltaba al día siguiente). */
+function ymdLocal(d){ return d.getFullYear() + pad2(d.getMonth()+1) + pad2(d.getDate()); }
+function isoDate(d){ return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate()); }
+function esc(s){ return String(s === undefined || s === null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
 
 function poissonPmf(k, lambda){ return Math.exp(-lambda) * Math.pow(lambda, k) / factorial(k); }
 function factorial(n){ let r = 1; for(let i=2;i<=n;i++) r*=i; return r; }
@@ -217,13 +239,65 @@ function renderProbBar(containerEl, homePct, drawPct, awayPct, hasDraw){
 function matchCardHTML(dateLabel, venue, homeName, awayName, homeLogo, awayLogo){
   const div = document.createElement("div"); div.className = "match-card";
   div.innerHTML =
-    '<div class="match-top"><span>' + dateLabel + '</span><span>' + (venue||"") + '</span></div>' +
+    '<div class="match-top"><span>' + esc(dateLabel) + '</span><span>' + esc(venue||"") + '</span></div>' +
     '<div class="match-teams">' +
-      '<div class="team"><img class="badge" src="' + (homeLogo||"") + '" onerror="this.style.display=\'none\'">' + homeName + '</div>' +
+      '<div class="team"><img class="badge" src="' + esc(homeLogo||"") + '" onerror="this.style.display=\'none\'">' + esc(homeName) + '</div>' +
       '<div class="vs">vs</div>' +
-      '<div class="team away">' + awayName + '<img class="badge" src="' + (awayLogo||"") + '" onerror="this.style.display=\'none\'" style="margin-right:0;margin-left:6px;"></div>' +
+      '<div class="team away">' + esc(awayName) + '<img class="badge" src="' + esc(awayLogo||"") + '" onerror="this.style.display=\'none\'" style="margin-right:0;margin-left:6px;"></div>' +
     '</div>';
   return div;
+}
+function addNote(card, text){ const n = document.createElement("div"); n.className = "note"; n.textContent = text; card.appendChild(n); }
+
+/* ---------- acceso a datos (con caché corto en memoria) ---------- */
+const ESPN_SITE = "https://site.api.espn.com/apis/site/v2/sports/";
+const ESPN_STANDINGS = "https://site.api.espn.com/apis/v2/sports/";
+const jsonCache = {};
+const CACHE_MS = 5 * 60 * 1000;
+function getJson(url){
+  const hit = jsonCache[url];
+  if(hit && (Date.now() - hit.t) < CACHE_MS) return hit.p;
+  const p = fetch(url).then(r => { if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  jsonCache[url] = { t: Date.now(), p: p };
+  p.catch(() => { if(jsonCache[url] && jsonCache[url].p === p) delete jsonCache[url]; });
+  return p;
+}
+const domesticPoolCache = {};
+function clearCaches(){
+  Object.keys(jsonCache).forEach(k => { delete jsonCache[k]; });
+  Object.keys(domesticPoolCache).forEach(k => { delete domesticPoolCache[k]; });
+}
+
+/* ESPN dejó de aceptar rangos "dates=AAAAMMDD-AAAAMMDD" en el scoreboard (responde 400
+   "Failed to get events endpoint"), que era lo que dejaba sin partidos a todos los deportes
+   que dependen de ESPN. El formato por mes "dates=AAAAMM" sí funciona, así que se piden
+   los meses que cubre la ventana y se filtra por fecha en el navegador. Si el formato por
+   mes llegara a fallar, se recurre a consultas día por día. */
+function monthKeys(daysAhead){
+  const keys = [];
+  const now = new Date();
+  const end = new Date(); end.setDate(end.getDate() + daysAhead);
+  const cur = new Date(now.getFullYear(), now.getMonth(), 1);
+  while(cur <= end){ keys.push(cur.getFullYear() + pad2(cur.getMonth()+1)); cur.setMonth(cur.getMonth()+1); }
+  return keys;
+}
+async function fetchEspnScoreboard(sportPath, league, daysAhead){
+  const base = ESPN_SITE + sportPath + "/" + league + "/scoreboard";
+  const seen = {}; const events = [];
+  const add = json => ((json && json.events) || []).forEach(ev => { if(ev && !seen[ev.id]){ seen[ev.id] = true; events.push(ev); } });
+  let ok = 0;
+  await Promise.all(monthKeys(daysAhead).map(async mk => {
+    try{ add(await getJson(base + "?dates=" + mk + "&limit=500")); ok++; } catch(e){}
+  }));
+  if(ok === 0){
+    const days = [];
+    for(let i=0; i<=Math.min(daysAhead, 10); i++){ const d = new Date(); d.setDate(d.getDate()+i); days.push(ymdLocal(d)); }
+    await Promise.all(days.map(async dk => {
+      try{ add(await getJson(base + "?dates=" + dk + "&limit=200")); ok++; } catch(e){}
+    }));
+  }
+  if(ok === 0) throw new Error("ESPN no devolvió el calendario");
+  return { events: events };
 }
 
 /* ---------- helpers to explore ESPN JSON shapes defensively ---------- */
@@ -236,6 +310,13 @@ function getStat(statMap, names, def){
   }
   return def;
 }
+/* Partidos jugados: no todas las ligas traen "gamesPlayed" (NBA y NFL no), así que se
+   reconstruye con victorias + derrotas + empates (+ derrotas en tiempo extra en NHL). */
+function gamesOf(stats){
+  const gp = getStat(stats, ["gamesPlayed"], null);
+  if(gp !== null) return gp;
+  return getStat(stats, ["wins"], 0) + getStat(stats, ["losses"], 0) + getStat(stats, ["ties"], 0) + getStat(stats, ["otLosses"], 0);
+}
 function extractEspnStandings(json){
   const results = [];
   function walk(node){
@@ -244,68 +325,98 @@ function extractEspnStandings(json){
     if(node.team && Array.isArray(node.stats)){
       const statMap = {};
       node.stats.forEach(s => { if(s && s.name !== undefined) statMap[s.name] = (s.value !== undefined ? s.value : s.displayValue); });
-      results.push({ name: node.team.displayName || node.team.name || "?", id: node.team.id, logo: (node.team.logos && node.team.logos[0] && node.team.logos[0].href) || node.team.logo || "", stats: statMap });
+      results.push({ name: node.team.displayName || node.team.name || "?", id: String(node.team.id), logo: (node.team.logos && node.team.logos[0] && node.team.logos[0].href) || node.team.logo || "", stats: statMap, prev: null });
     }
     Object.values(node).forEach(walk);
   }
   walk(json);
-  return results;
+  // Si un equipo aparece en más de una tabla, se conserva la que tiene más partidos.
+  const byId = {}; const order = [];
+  results.forEach(e => {
+    if(!byId[e.id]){ byId[e.id] = e; order.push(e.id); }
+    else if(gamesOf(e.stats) > gamesOf(byId[e.id].stats)) byId[e.id] = e;
+  });
+  return order.map(id => byId[id]);
 }
 function realGamesPlayed(entries){
   if(entries.length === 0) return 0;
-  const total = entries.reduce((s,e) => s + getStat(e.stats, ["wins"], 0) + getStat(e.stats, ["losses"], 0) + getStat(e.stats, ["ties"], 0), 0);
-  return total / entries.length;
+  return entries.reduce((s,e) => s + gamesOf(e.stats), 0) / entries.length;
 }
-async function fetchEspnStandingsSmart(url){
-  let entries = extractEspnStandings(await (await fetch(url)).json());
-  // Early in a new season (e.g. Liga MX Apertura just 3 games in) a team's current-season
-  // sample can be as thin as a cup competition's — too noisy for attack/defense ratios.
-  // Below MIN_GAMES, blend in the previous season's numbers per-team so a fresh season
-  // start doesn't make otherwise-strong teams look average/weak (or vice versa).
-  const MIN_GAMES = 6;
-  if(realGamesPlayed(entries) < MIN_GAMES){
+/* Trae la tabla y, si la temporada va empezando (menos de minGames partidos en promedio),
+   adjunta a cada equipo los números de la temporada anterior en "prev". Los modelos los
+   mezclan con teamRates() para que un arranque de temporada no deje a todos los equipos
+   iguales. La temporada anterior se toma de la lista que da ESPN (en NBA/NHL el "año" de
+   la temporada es el del cierre, por eso no sirve restar 1 al año calendario). */
+async function fetchEspnStandings(url, minGames){
+  const json = await getJson(url);
+  const entries = extractEspnStandings(json);
+  const avgPlayed = realGamesPlayed(entries);
+  let usedPrev = false;
+  if(minGames > 0 && entries.length > 0 && avgPlayed < minGames){
     try{
-      const fallbackYear = new Date().getFullYear() - 1;
-      const url2 = url + (url.includes("?") ? "&" : "?") + "season=" + fallbackYear;
-      const entries2 = extractEspnStandings(await (await fetch(url2)).json());
-      const byId = {};
-      entries2.forEach(e => { byId[e.id] = e; });
-      entries = entries.map(e => {
-        const played = getStat(e.stats, ["gamesPlayed"], 0);
-        if(played >= MIN_GAMES) return e;
-        const prev = byId[e.id];
-        if(!prev) return e;
-        const prevPlayed = getStat(prev.stats, ["gamesPlayed"], 0);
-        return prevPlayed > played ? prev : e;
+      const curYear = json.season && Number(json.season.year);
+      let prevYear = null;
+      (json.seasons || []).forEach(s => {
+        const y = Number(s.year);
+        if(curYear && y < curYear && (prevYear === null || y > prevYear)) prevYear = y;
       });
+      if(prevYear === null) prevYear = (curYear || new Date().getFullYear()) - 1;
+      const json2 = await getJson(url + (url.includes("?") ? "&" : "?") + "season=" + prevYear);
+      const byId = {};
+      extractEspnStandings(json2).forEach(e => { byId[e.id] = e; });
+      entries.forEach(e => { if(byId[e.id] && gamesOf(byId[e.id].stats) > 0){ e.prev = byId[e.id].stats; usedPrev = true; } });
     } catch(err){}
   }
-  return entries;
+  return { entries: entries, avgPlayed: avgPlayed, usedPrev: usedPrev };
 }
-function extractEspnEvents(json){
+/* Anotación y recepción por partido. Con "prev" disponible, la temporada anterior cuenta
+   como si fueran priorGames partidos extra, así su peso baja solo conforme avanza la actual. */
+function teamRates(e, priorGames){
+  const gp = gamesOf(e.stats);
+  const f = getStat(e.stats, ["pointsFor"], 0), a = getStat(e.stats, ["pointsAgainst"], 0);
+  let w = 0, pf = 0, pa = 0;
+  if(e.prev){
+    const pgp = gamesOf(e.prev);
+    if(pgp > 0){ w = priorGames; pf = getStat(e.prev, ["pointsFor"], 0)/pgp; pa = getStat(e.prev, ["pointsAgainst"], 0)/pgp; }
+  }
+  const denom = gp + w;
+  if(denom <= 0) return null;
+  return { played: gp, eff: denom, forPg: (f + w*pf)/denom, againstPg: (a + w*pa)/denom };
+}
+/* Para las tablas: si la temporada aún no arranca se muestran los números de la anterior. */
+function displayStats(e, avgPlayed){ return (avgPlayed < 1 && e.prev) ? e.prev : e.stats; }
+
+/* Solo partidos por jugarse (estado "pre") dentro de la ventana, en orden cronológico. */
+function extractEspnEvents(json, daysAhead){
   const out = [];
+  const now = Date.now();
+  const maxT = daysAhead ? now + daysAhead*86400000 : Infinity;
   (json.events || []).forEach(ev => {
     const comp = ev.competitions && ev.competitions[0];
     if(!comp) return;
+    const st = (comp.status && comp.status.type) || {};
+    if(st.completed || (st.state && st.state !== "pre")) return;
+    const t = new Date(ev.date).getTime();
+    if(Number.isFinite(t) && (t < now || t > maxT)) return;
     const competitors = comp.competitors || [];
     const home = competitors.find(c => c.homeAway === "home");
     const away = competitors.find(c => c.homeAway === "away");
-    if(!home || !away) return;
+    if(!home || !away || !home.team || !away.team) return;
     out.push({
-      date: ev.date, venue: comp.venue && comp.venue.fullName,
-      homeName: (home.team && (home.team.displayName || home.team.name)) || (home.athlete && home.athlete.displayName) || "?",
-      awayName: (away.team && (away.team.displayName || away.team.name)) || (away.athlete && away.athlete.displayName) || "?",
-      homeLogo: (home.team && home.team.logo) || (home.athlete && home.athlete.headshot && home.athlete.headshot.href) || "",
-      awayLogo: (away.team && away.team.logo) || (away.athlete && away.athlete.headshot && away.athlete.headshot.href) || "",
-      homeRank: home.curatedRank && home.curatedRank.current,
-      awayRank: away.curatedRank && away.curatedRank.current,
-      status: comp.status && comp.status.type && comp.status.type.description
+      id: ev.id, date: ev.date, venue: comp.venue && comp.venue.fullName, neutral: comp.neutralSite === true,
+      homeId: String(home.team.id), awayId: String(away.team.id),
+      homeName: home.team.displayName || home.team.name || "?",
+      awayName: away.team.displayName || away.team.name || "?",
+      homeLogo: home.team.logo || "", awayLogo: away.team.logo || "",
+      preseason: !!(ev.season && (ev.season.type === 1 || ev.season.slug === "preseason")),
+      status: st.description
     });
   });
+  out.sort((a,b) => new Date(a.date) - new Date(b.date));
   return out;
 }
 function fmtDate(iso){
-  try{ const d = new Date(iso); return d.toLocaleDateString("es-ES", { day:"2-digit", month:"short" }) + " " + d.toLocaleTimeString("es-ES", { hour:"2-digit", minute:"2-digit" }); }
+  try{ const d = new Date(iso); return d.toLocaleDateString("es-ES", { weekday:"short", day:"2-digit", month:"short" }) + " " + d.toLocaleTimeString("es-ES", { hour:"2-digit", minute:"2-digit" }); }
   catch(e){ return iso || ""; }
 }
 function describeStrength(v){
@@ -315,10 +426,11 @@ function describeStrength(v){
   if(v >= 0.7) return "por debajo del promedio";
   return "muy por debajo del promedio";
 }
-function mostLikelyScore(expHome, expAway){
+function mostLikelyScore(expHome, expAway, noDraw){
   let best = { i:0, j:0, p:-1 };
-  for(let i=0;i<=6;i++){
-    for(let j=0;j<=6;j++){
+  for(let i=0;i<=8;i++){
+    for(let j=0;j<=8;j++){
+      if(noDraw && i === j) continue;
       const p = poissonPmf(i, expHome) * poissonPmf(j, expAway);
       if(p > best.p) best = { i, j, p };
     }
@@ -330,10 +442,11 @@ function poissonWhy(pickIsHome, pickTeam, oppTeam, pickAttack, oppDefense, unit)
     oppTeam + ": defensa concede " + Math.round(oppDefense*100) + "% del promedio." + (pickIsHome ? " Juega de local." : "");
 }
 function netRatingWhy(pickIsHome, pickTeam, oppTeam, pickNet, oppNet){
-  return pickTeam + " tiene un diferencial de " + pickNet.toFixed(1) + " pts/partido frente a " + (-oppNet).toFixed(1) + " de " + oppTeam + "." + (pickIsHome ? " Juega de local." : "");
+  const sign = v => (v >= 0 ? "+" : "") + v.toFixed(1);
+  return pickTeam + " tiene un diferencial de " + sign(pickNet) + " pts/partido frente a " + sign(oppNet) + " de " + oppTeam + "." + (pickIsHome ? " Juega de local." : "");
 }
-function rankingWhy(pickTeam, pickRank, oppTeam, oppRank){
-  return pickTeam + " está mejor posicionado en el ranking ATP (#" + pickRank + ") que " + oppTeam + " (#" + oppRank + ").";
+function rankingWhy(pickTeam, pickRank, oppTeam, oppRank, tour){
+  return pickTeam + " está mejor posicionado en el ranking " + tour + " (#" + pickRank + ") que " + oppTeam + " (#" + oppRank + ").";
 }
 function log5(pA, pB){
   const denom = pA + pB - 2*pA*pB;
@@ -345,6 +458,7 @@ function estimateScore(hPF, hPA, aPF, aPA, hfa){
   let awayEst = Math.round(((aPF + hPA)/2) - hfa/2);
   if(homeEst < 0) homeEst = 0;
   if(awayEst < 0) awayEst = 0;
+  if(homeEst === awayEst){ if(hPF - hPA + hfa >= aPF - aPA) homeEst++; else awayEst++; }
   return homeEst + "-" + awayEst;
 }
 function attachDetailToggle(card, detail, formLoader){
@@ -396,26 +510,23 @@ function competitorResultEspn(ev, teamId){
   return result ? { result, date: ev.date, oppName: (opp.team && (opp.team.displayName || opp.team.name)) || "?" } : null;
 }
 async function fetchEspnRecentFormOnce(sportPath, leagueSlug, teamId){
-  const json = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/" + sportPath + "/" + leagueSlug + "/teams/" + teamId + "/schedule")).json();
+  const res = await fetch(ESPN_SITE + sportPath + "/" + leagueSlug + "/teams/" + teamId + "/schedule");
+  if(!res.ok) return [];
+  const json = await res.json();
   const results = [];
   (json.events || []).forEach(ev => { const r = competitorResultEspn(ev, teamId); if(r) results.push(r); });
   results.sort((a,b) => new Date(b.date) - new Date(a.date));
   return results.slice(0, 10);
 }
-const SOCCER_FALLBACK_SLUGS = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "usa.1", "mex.1"];
-async function fetchEspnRecentForm(sportPath, leagueSlug, teamId){
-  const first = await fetchEspnRecentFormOnce(sportPath, leagueSlug, teamId);
-  if(sportPath !== "soccer" || first.length >= 10) return first;
-  // A cup/group competition (e.g. Leagues Cup just starting) often only has 1-2 games played
-  // so far — not enough for a real "últimos 10" picture. Supplement with the team's domestic
-  // league results (deduped, most recent first) so the list is actually close to 10 entries.
-  const combined = first.slice();
-  const seen = new Set(combined.map(r => r.date + "|" + r.oppName));
-  for(const slug of SOCCER_FALLBACK_SLUGS){
-    if(slug === leagueSlug || combined.length >= 10) continue;
+/* Junta los últimos resultados del equipo recorriendo las competiciones indicadas (por
+   ejemplo copa + liga local) hasta completar 10, sin duplicados y del más reciente al más antiguo. */
+async function fetchEspnRecentForm(sportPath, slugs, teamId){
+  const combined = []; const seen = new Set();
+  for(const slug of slugs){
+    if(combined.length >= 10) break;
     try{
-      const alt = await fetchEspnRecentFormOnce(sportPath, slug, teamId);
-      alt.forEach(r => {
+      const part = await fetchEspnRecentFormOnce(sportPath, slug, teamId);
+      part.forEach(r => {
         const key = r.date + "|" + r.oppName;
         if(!seen.has(key)){ seen.add(key); combined.push(r); }
       });
@@ -426,7 +537,7 @@ async function fetchEspnRecentForm(sportPath, leagueSlug, teamId){
 }
 async function fetchMlbRecentForm(teamId){
   const endD = new Date(); const startD = new Date(); startD.setDate(startD.getDate() - 35);
-  const json = await (await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=" + teamId + "&startDate=" + isoDate(startD) + "&endDate=" + isoDate(endD) + "&gameType=R")).json();
+  const json = await (await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=" + teamId + "&startDate=" + isoDate(startD) + "&endDate=" + isoDate(endD))).json();
   const games = [];
   (json.dates || []).forEach(d => (d.games || []).forEach(g => games.push(g)));
   const results = [];
@@ -443,26 +554,16 @@ async function fetchMlbRecentForm(teamId){
   return results.slice(0, 10);
 }
 function renderFormRow(label, results){
-  if(!results || results.length === 0) return '<div class="form-row"><strong>' + label + ':</strong> sin datos recientes</div>';
-  const badges = results.map(r => '<span class="form-badge form-' + r.result + '" title="' + (r.result==="W"?"Victoria":r.result==="L"?"Derrota":"Empate") + ' vs ' + r.oppName + '">' + r.result + '</span>').join("");
-  return '<div class="form-row"><strong>' + label + ':</strong> ' + badges + '</div>';
+  if(!results || results.length === 0) return '<div class="form-row"><strong>' + esc(label) + ':</strong> sin datos recientes</div>';
+  const badges = results.map(r => '<span class="form-badge form-' + r.result + '" title="' + (r.result==="W"?"Victoria":r.result==="L"?"Derrota":"Empate") + ' vs ' + esc(r.oppName) + '">' + r.result + '</span>').join("");
+  return '<div class="form-row"><strong>' + esc(label) + ':</strong> ' + badges + '</div>';
 }
-function footballFormLoader(slug, home, away, ev){
-  if(!home || !home.id || !away || !away.id) return null;
+function espnFormLoader(sportPath, homeSlugs, awaySlugs, homeId, awayId, homeName, awayName){
+  if(!homeId || !awayId) return null;
   return async () => {
     const [h, a] = await Promise.all([
-      getRecentForm("soccer:" + slug + ":" + home.id, () => fetchEspnRecentForm("soccer", slug, home.id)),
-      getRecentForm("soccer:" + slug + ":" + away.id, () => fetchEspnRecentForm("soccer", slug, away.id))
-    ]);
-    return renderFormRow(ev.homeName, h) + renderFormRow(ev.awayName, a);
-  };
-}
-function espnTeamFormLoader(sportPath, leagueSlug, home, away, homeName, awayName){
-  if(!home || !home.id || !away || !away.id) return null;
-  return async () => {
-    const [h, a] = await Promise.all([
-      getRecentForm(sportPath + ":" + leagueSlug + ":" + home.id, () => fetchEspnRecentForm(sportPath, leagueSlug, home.id)),
-      getRecentForm(sportPath + ":" + leagueSlug + ":" + away.id, () => fetchEspnRecentForm(sportPath, leagueSlug, away.id))
+      getRecentForm(sportPath + ":" + homeSlugs.join(",") + ":" + homeId, () => fetchEspnRecentForm(sportPath, homeSlugs, homeId)),
+      getRecentForm(sportPath + ":" + awaySlugs.join(",") + ":" + awayId, () => fetchEspnRecentForm(sportPath, awaySlugs, awayId))
     ]);
     return renderFormRow(homeName, h) + renderFormRow(awayName, a);
   };
@@ -487,205 +588,489 @@ function isTomorrow(iso){
   const d = new Date(iso), t = new Date(); t.setDate(t.getDate()+1);
   return d.getFullYear()===t.getFullYear() && d.getMonth()===t.getMonth() && d.getDate()===t.getDate();
 }
-async function fetchAtpRankMap(){
-  try{
-    const json = await (await fetch("https://site.api.espn.com/apis/site/v2/sports/tennis/atp/rankings")).json();
-    const map = {};
-    (json.rankings || []).forEach(r => (r.ranks || []).forEach(rk => {
-      const name = rk.athlete && rk.athlete.displayName;
-      if(name && rk.current) map[name] = rk.current;
-    }));
-    return map;
-  } catch(e){ return {}; }
-}
 
 /* ---------- FÚTBOL ---------- */
 const LEAGUES = [
-  { slug: "eng.1", name: "Premier League (Inglaterra)" },
-  { slug: "esp.1", name: "La Liga (España)" },
-  { slug: "ita.1", name: "Serie A (Italia)" },
-  { slug: "ger.1", name: "Bundesliga (Alemania)" },
-  { slug: "fra.1", name: "Ligue 1 (Francia)" },
-  { slug: "usa.1", name: "MLS (Estados Unidos)" },
-  { slug: "mex.1", name: "Liga MX (México)" },
-  { slug: "uefa.champions", name: "UEFA Champions League" },
-  { slug: "concacaf.leagues.cup", name: "Leagues Cup" }
+  { slug: "eng.1", name: "Premier League (Inglaterra)", kind: "league", group: "Ligas" },
+  { slug: "esp.1", name: "La Liga (España)", kind: "league", group: "Ligas" },
+  { slug: "ita.1", name: "Serie A (Italia)", kind: "league", group: "Ligas" },
+  { slug: "ger.1", name: "Bundesliga (Alemania)", kind: "league", group: "Ligas" },
+  { slug: "fra.1", name: "Ligue 1 (Francia)", kind: "league", group: "Ligas" },
+  { slug: "mex.1", name: "Liga MX (México)", kind: "league", group: "Ligas" },
+  { slug: "arg.1", name: "Liga Profesional (Argentina)", kind: "league", group: "Ligas" },
+  { slug: "bra.1", name: "Brasileirão Serie A (Brasil)", kind: "league", group: "Ligas" },
+  { slug: "usa.1", name: "MLS (Estados Unidos)", kind: "league", group: "Ligas" },
+  { slug: "por.1", name: "Primeira Liga (Portugal)", kind: "league", group: "Ligas" },
+  { slug: "ned.1", name: "Eredivisie (Países Bajos)", kind: "league", group: "Ligas" },
+  { slug: "uefa.champions", name: "UEFA Champions League", kind: "cup", pool: "uefa", group: "Copas de clubes" },
+  { slug: "uefa.europa", name: "UEFA Europa League", kind: "cup", pool: "uefa", group: "Copas de clubes" },
+  { slug: "uefa.europa.conf", name: "UEFA Conference League", kind: "cup", pool: "uefa", group: "Copas de clubes" },
+  { slug: "conmebol.libertadores", name: "Copa Libertadores", kind: "cup", pool: "conmebol", group: "Copas de clubes" },
+  { slug: "conmebol.sudamericana", name: "Copa Sudamericana", kind: "cup", pool: "conmebol", group: "Copas de clubes" },
+  { slug: "concacaf.leagues.cup", name: "Leagues Cup", kind: "cup", pool: "concacaf", group: "Copas de clubes" },
+  { slug: "fifa.friendly", name: "Amistosos internacionales", kind: "national", group: "Selecciones" },
+  { slug: "uefa.nations", name: "UEFA Nations League", kind: "national", group: "Selecciones" },
+  { slug: "caf.nations", name: "Copa Africana de Naciones", kind: "national", group: "Selecciones" },
+  { slug: "caf.nations_qual", name: "Clasificación a la Copa Africana", kind: "national", group: "Selecciones" }
 ];
-function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+function leagueBySlug(slug){ return LEAGUES.find(l => l.slug === slug) || LEAGUES[0]; }
+function soccerStandingsUrl(slug){ return ESPN_STANDINGS + "soccer/" + slug + "/standings"; }
+
+/* Parámetros calibrados con un backtest sobre los 1,737 partidos 2025-26 de las cinco
+   grandes ligas europeas: con el reparto local/visita anterior (1.30/0.85) y sin regresión
+   a la media, los picks de 80%+ solo acertaban 73%. Con estos valores, lo que el modelo
+   llama 85% acertó 83% y lo que llama 64% acertó 68%.
+   - HOME/AWAY: reparto de goles local/visita.
+   - FOOT_PRIOR: la temporada anterior pesa como 10 partidos extra (siempre se mezcla).
+   - FOOT_SHRINK: regresión a la media; con pocos partidos la fuerza se acerca a 1.0. */
+const HOME_GOAL_FACTOR = 1.13, AWAY_GOAL_FACTOR = 0.87;
+const FOOT_MIN_GAMES = 99, FOOT_PRIOR = 10, FOOT_SHRINK = 8;
+const CUP_LEAGUE_AVG = 1.35;
+
 function buildFootballStrengths(entries){
-  let totalGF = 0, totalPlayed = 0;
-  const parsed = entries.map(e => {
-    const wins = getStat(e.stats, ["wins"], 0), losses = getStat(e.stats, ["losses"], 0), ties = getStat(e.stats, ["ties"], 0);
-    const played = getStat(e.stats, ["gamesPlayed"], wins+losses+ties);
-    const gf = getStat(e.stats, ["pointsFor"], 0), ga = getStat(e.stats, ["pointsAgainst"], 0);
-    const pts = getStat(e.stats, ["points"], wins*3+ties);
-    totalGF += gf; totalPlayed += played;
-    return { name: e.name, id: e.id, logo: e.logo, played, wins, losses, ties, gf, ga, pts };
-  });
-  const leagueAvg = totalPlayed > 0 ? totalGF / totalPlayed : 1.3;
+  const rows = [];
+  entries.forEach(e => { const r = teamRates(e, FOOT_PRIOR); if(r) rows.push({ e: e, r: r }); });
+  let leagueAvg = rows.length ? rows.reduce((s,x) => s + x.r.forPg, 0) / rows.length : 1.3;
+  if(!(leagueAvg > 0.3)) leagueAvg = 1.3;
   const strengths = {};
-  parsed.forEach(t => {
+  rows.forEach(x => {
     // Clamp so a small sample (e.g. one lopsided early-season/cup game) can't produce absurd ratios.
-    strengths[t.name] = {
-      attack: clamp((t.gf/(t.played||1))/leagueAvg, 0.4, 2.2),
-      defense: clamp((t.ga/(t.played||1))/leagueAvg, 0.4, 2.2),
-      formMult: 1, id: t.id, played: t.played
+    const w = x.r.eff / (x.r.eff + FOOT_SHRINK);
+    strengths[x.e.id] = {
+      attack: 1 + (clamp(x.r.forPg/leagueAvg, 0.4, 2.2) - 1) * w,
+      defense: 1 + (clamp(x.r.againstPg/leagueAvg, 0.4, 2.2) - 1) * w,
+      id: x.e.id, name: x.e.name, played: x.r.played, eff: x.r.eff
     };
   });
-  return { strengths, leagueAvg, parsed };
+  return { strengths: strengths, leagueAvg: leagueAvg };
 }
-/* Cup/group competitions (Leagues Cup, Champions League groups, etc.) often show 0-3 games played
-   in their own standings table, which makes attack/defense ratios statistically meaningless.
-   When that happens, blend in each team's real domestic-league form instead. */
-const DOMESTIC_SOCCER_SLUGS = ["eng.1", "esp.1", "ita.1", "ger.1", "fra.1", "usa.1", "mex.1"];
-let domesticStrengthsCache = null;
-async function getDomesticFootballStrengths(){
-  if(domesticStrengthsCache) return domesticStrengthsCache;
-  const merged = {};
-  await Promise.all(DOMESTIC_SOCCER_SLUGS.map(async slug => {
+/* En copas internacionales (Champions, Libertadores, Leagues Cup...) la tabla propia tiene
+   muy pocos partidos, así que la fuerza de cada club se toma de su liga local. Como dominar
+   una liga débil no equivale a dominar una fuerte, se aplica un coeficiente APROXIMADO por
+   nivel de liga (estimación propia, solo comparable dentro de cada confederación). */
+const DOMESTIC_POOLS = {
+  uefa: ["eng.1","esp.1","ita.1","ger.1","fra.1","por.1","ned.1","bel.1","tur.1","sco.1","gre.1","aut.1","den.1","nor.1","swe.1"],
+  conmebol: ["bra.1","arg.1","col.1","chi.1","uru.1","par.1","per.1","bol.1","ven.1"],
+  concacaf: ["mex.1","usa.1"]
+};
+const LEAGUE_COEF = {
+  "eng.1":1.00, "esp.1":0.92, "ita.1":0.92, "ger.1":0.92, "fra.1":0.86, "por.1":0.74, "ned.1":0.74, "bel.1":0.70,
+  "tur.1":0.68, "gre.1":0.64, "aut.1":0.64, "den.1":0.64, "nor.1":0.62, "sco.1":0.60, "swe.1":0.58,
+  "bra.1":1.00, "arg.1":0.93, "col.1":0.82, "uru.1":0.82, "par.1":0.80, "chi.1":0.78, "per.1":0.74, "bol.1":0.72, "ven.1":0.70,
+  "mex.1":1.00, "usa.1":0.97
+};
+function getDomesticStrengths(pool){
+  if(domesticPoolCache[pool]) return domesticPoolCache[pool];
+  const p = (async () => {
+    const merged = {};
+    await Promise.all((DOMESTIC_POOLS[pool] || []).map(async slug => {
+      try{
+        const st = await fetchEspnStandings(soccerStandingsUrl(slug), FOOT_MIN_GAMES);
+        const built = buildFootballStrengths(st.entries);
+        const c = LEAGUE_COEF[slug] || 0.7;
+        Object.keys(built.strengths).forEach(id => {
+          const s = built.strengths[id];
+          if(s.eff < 5) return;
+          const adj = { attack: clamp(s.attack*c, 0.3, 2.4), defense: clamp(s.defense/c, 0.3, 2.6), id: s.id, name: s.name, played: s.played, eff: s.eff, slug: slug };
+          if(!merged[id] || adj.eff > merged[id].eff) merged[id] = adj;
+        });
+      } catch(e){}
+    }));
+    return merged;
+  })();
+  domesticPoolCache[pool] = p;
+  return p;
+}
+
+/* ---------- Selecciones nacionales: rating Elo ----------
+   Amistosos, Nations League o Copa Africana no tienen una tabla de liga con suficientes
+   partidos, así que la fuerza de cada selección se calcula con un Elo sobre sus resultados
+   del año actual y el anterior (Mundial, eliminatorias, torneos continentales y amistosos).
+   Son ~13 MB de datos, por eso el resultado se guarda 12 horas en el navegador. */
+const NATIONAL_COMPS = [
+  { slug: "fifa.world", k: 55 }, { slug: "fifa.friendly", k: 22 },
+  { slug: "uefa.nations", k: 40 }, { slug: "uefa.euro", k: 48 },
+  { slug: "caf.nations", k: 48 }, { slug: "caf.nations_qual", k: 38 },
+  { slug: "conmebol.america", k: 48 }, { slug: "concacaf.gold", k: 45 }, { slug: "concacaf.nations.league", k: 38 },
+  { slug: "afc.asian.cup", k: 45 },
+  { slug: "fifa.worldq.uefa", k: 40 }, { slug: "fifa.worldq.conmebol", k: 40 }, { slug: "fifa.worldq.caf", k: 40 },
+  { slug: "fifa.worldq.afc", k: 40 }, { slug: "fifa.worldq.concacaf", k: 40 }
+];
+const NAT_ELO_KEY = "sd_nat_elo_v1";
+/* NAT_ELO_SPREAD comprime la diferencia de ratings: en un backtest (entrenando hasta mayo
+   de 2026 y prediciendo los 306 partidos posteriores) sin comprimir, los picks de 80-90%
+   acertaban 71%; con 0.85 acertaron 86%. */
+const NAT_MIN_MATCHES = 10, NAT_HOME_ELO = 80, NAT_ELO_SPREAD = 0.85;
+let nationalEloPromise = null;
+function finishedSoccerMatch(ev){
+  const comp = ev.competitions && ev.competitions[0];
+  if(!comp || !comp.status || !comp.status.type || !comp.status.type.completed) return null;
+  const cs = comp.competitors || [];
+  const home = cs.find(c => c.homeAway === "home"), away = cs.find(c => c.homeAway === "away");
+  if(!home || !away || !home.team || !away.team) return null;
+  const hs = Number(home.score), as = Number(away.score);
+  if(!Number.isFinite(hs) || !Number.isFinite(as) || home.score === "" || away.score === "" || home.score === undefined || away.score === undefined) return null;
+  return { id: ev.id, t: new Date(ev.date).getTime(), hid: String(home.team.id), aid: String(away.team.id),
+    hname: home.team.displayName, aname: away.team.displayName, hs: hs, as: as, neutral: comp.neutralSite === true };
+}
+function computeElo(matches){
+  const R = {};
+  const get = (id, name) => R[id] || (R[id] = { r: 1500, n: 0, name: name });
+  matches.sort((a,b) => a.t - b.t);
+  // Dos pasadas: la segunda arranca con los ratings de la primera, para compensar que
+  // todas las selecciones empiezan en 1500 con solo dos años de partidos.
+  for(let pass = 0; pass < 2; pass++){
+    matches.forEach(m => {
+      const h = get(m.hid, m.hname), a = get(m.aid, m.aname);
+      const d = h.r - a.r + (m.neutral ? 0 : NAT_HOME_ELO);
+      const we = 1/(1+Math.pow(10, -d/400));
+      const res = m.hs > m.as ? 1 : m.hs < m.as ? 0 : 0.5;
+      const gd = Math.abs(m.hs - m.as);
+      const g = gd <= 1 ? 1 : gd === 2 ? 1.5 : 1.75 + (gd-3)/8;
+      const delta = m.k * g * (res - we);
+      h.r += delta; a.r -= delta;
+      if(pass === 0){ h.n++; a.n++; }
+    });
+  }
+  Object.keys(R).forEach(id => { R[id].r = Math.round(R[id].r); });
+  return R;
+}
+function getNationalElo(){
+  if(nationalEloPromise) return nationalEloPromise;
+  nationalEloPromise = (async () => {
     try{
-      const entries = await fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/soccer/" + slug + "/standings");
-      const { strengths } = buildFootballStrengths(entries);
-      Object.keys(strengths).forEach(name => {
-        if(!merged[name] || (strengths[name].played||0) > (merged[name].played||0)) merged[name] = strengths[name];
-      });
+      const raw = localStorage.getItem(NAT_ELO_KEY);
+      if(raw){ const c = JSON.parse(raw); if(c && c.ratings && c.t && (Date.now() - c.t) < 12*3600000) return c.ratings; }
     } catch(e){}
-  }));
-  domesticStrengthsCache = merged;
-  return merged;
+    const year = new Date().getFullYear();
+    const seen = {}; const matches = [];
+    await Promise.all(NATIONAL_COMPS.map(comp => Promise.all([year-1, year].map(async y => {
+      try{
+        const res = await fetch(ESPN_SITE + "soccer/" + comp.slug + "/scoreboard?dates=" + y + "&limit=1000");
+        if(!res.ok) return;
+        const json = await res.json();
+        (json.events || []).forEach(ev => {
+          const m = finishedSoccerMatch(ev);
+          if(m && !seen[m.id]){ seen[m.id] = true; m.k = comp.k; matches.push(m); }
+        });
+      } catch(e){}
+    }))));
+    const ratings = computeElo(matches);
+    if(matches.length >= 200){
+      try{ localStorage.setItem(NAT_ELO_KEY, JSON.stringify({ t: Date.now(), ratings: ratings })); } catch(e){}
+    }
+    return ratings;
+  })();
+  nationalEloPromise.catch(() => { nationalEloPromise = null; });
+  return nationalEloPromise;
 }
-async function getFootballStrengthsWithFallback(entries){
-  const built = buildFootballStrengths(entries);
-  if(realGamesPlayed(entries) >= 5) return built;
-  const domestic = await getDomesticFootballStrengths();
-  const merged = Object.assign({}, built.strengths);
-  Object.keys(domestic).forEach(name => {
-    const own = merged[name];
-    if(!own || (own.played||0) < 5) merged[name] = domestic[name];
-  });
-  // The competition's own goals-per-game average is unreliable with so few games recorded —
-  // use a typical league-average baseline instead so Poisson expectations stay sane.
-  const leagueAvg = 1.3;
-  return { strengths: merged, leagueAvg, parsed: built.parsed };
+/* Convierte la expectativa Elo (victoria + medio empate) en goles esperados de cada lado,
+   buscando la diferencia de goles cuyo Poisson reproduce esa expectativa. */
+function goalsFromWinExp(we){
+  let lo = -3.5, hi = 3.5, best = { lh: 1.3, la: 1.3 };
+  for(let i=0;i<28;i++){
+    const s = (lo+hi)/2;
+    const total = 2.6 + 0.2*Math.abs(s);
+    const lh = Math.max(0.2, (total + s)/2), la = Math.max(0.2, (total - s)/2);
+    const p = predictPoisson(lh, la);
+    best = { lh: lh, la: la };
+    if(p.home + 0.5*p.draw < we) lo = s; else hi = s;
+  }
+  return best;
 }
-function renderFootballStandings(parsed){
+function eloWhy(pickIsHome, pickTeam, pick, oppTeam, opp){
+  return pickTeam + " tiene mejor rating Elo (" + pick.r + ") que " + oppTeam + " (" + opp.r + "), calculado con sus resultados de selección de los últimos dos años." + (pickIsHome ? " Juega de local." : "");
+}
+
+async function loadFootballModel(lg){
+  const safeStandings = minGames => fetchEspnStandings(soccerStandingsUrl(lg.slug), minGames).catch(() => ({ entries: [], avgPlayed: 0, usedPrev: false }));
+  if(lg.kind === "national"){
+    const [elo, st] = await Promise.all([getNationalElo(), safeStandings(0)]);
+    return { kind: "national", elo: elo, st: st };
+  }
+  if(lg.kind === "cup"){
+    const [strengths, st] = await Promise.all([getDomesticStrengths(lg.pool), safeStandings(0)]);
+    return { kind: "cup", strengths: strengths, leagueAvg: CUP_LEAGUE_AVG, st: st };
+  }
+  const st = await safeStandings(FOOT_MIN_GAMES);
+  const built = buildFootballStrengths(st.entries);
+  return { kind: "league", strengths: built.strengths, leagueAvg: built.leagueAvg, st: st };
+}
+function footballForecast(model, ev){
+  let expHome, expAway, h, a;
+  if(model.kind === "national"){
+    h = model.elo[ev.homeId]; a = model.elo[ev.awayId];
+    if(!h || !a || h.n < NAT_MIN_MATCHES || a.n < NAT_MIN_MATCHES) return { ok: false };
+    const d = (h.r - a.r) * NAT_ELO_SPREAD + (ev.neutral ? 0 : NAT_HOME_ELO);
+    const g = goalsFromWinExp(1/(1+Math.pow(10, -d/400)));
+    expHome = g.lh; expAway = g.la;
+  } else {
+    h = model.strengths[ev.homeId]; a = model.strengths[ev.awayId];
+    if(!h || !a) return { ok: false };
+    expHome = model.leagueAvg * (ev.neutral ? 1 : HOME_GOAL_FACTOR) * h.attack * a.defense;
+    expAway = model.leagueAvg * (ev.neutral ? 1 : AWAY_GOAL_FACTOR) * a.attack * h.defense;
+  }
+  if(!Number.isFinite(expHome) || !Number.isFinite(expAway) || expHome <= 0 || expAway <= 0) return { ok: false };
+  const pred = predictPoisson(expHome, expAway);
+  const homePct = Math.round(pred.home*100), drawPct = Math.round(pred.draw*100), awayPct = 100 - homePct - drawPct;
+  const pickHome = homePct >= awayPct && homePct >= drawPct;
+  const pickAway = !pickHome && awayPct >= drawPct;
+  let why;
+  if(model.kind === "national"){
+    why = pickHome ? eloWhy(!ev.neutral, ev.homeName, h, ev.awayName, a)
+      : pickAway ? eloWhy(false, ev.awayName, a, ev.homeName, h)
+      : "Ratings Elo muy parejos entre ambas selecciones.";
+  } else {
+    why = pickHome ? poissonWhy(!ev.neutral, ev.homeName, ev.awayName, h.attack, a.defense, "goles")
+      : pickAway ? poissonWhy(false, ev.awayName, ev.homeName, a.attack, h.defense, "goles")
+      : "Ambos equipos muestran fuerza similar de ataque/defensa — partido parejo.";
+    if(model.kind === "cup") why += " Fuerza tomada de la liga local de cada club, ajustada por nivel de liga.";
+  }
+  if(ev.neutral) why += " Sede neutral.";
+  return { ok: true, homePct: homePct, drawPct: drawPct, awayPct: awayPct, expHome: expHome, expAway: expAway,
+    pickTeam: pickHome ? ev.homeName : pickAway ? ev.awayName : "Empate", pickPct: pickHome ? homePct : pickAway ? awayPct : drawPct,
+    why: why, score: mostLikelyScore(expHome, expAway), h: h, a: a };
+}
+function renderFootballStandings(model){
   const tbody = el("football-table-body"); tbody.innerHTML = "";
-  parsed.sort((a,b) => b.pts - a.pts).forEach((t,i) => {
+  const st = model.st;
+  if(!st.entries.length){
+    tbody.innerHTML = '<tr><td colspan="10" class="status">Esta competición no tiene tabla de posiciones disponible.</td></tr>';
+    return;
+  }
+  const rows = st.entries.map(e => {
+    const s = displayStats(e, st.avgPlayed);
+    const wins = getStat(s, ["wins"], 0), losses = getStat(s, ["losses"], 0), ties = getStat(s, ["ties"], 0);
+    return { name: e.name, logo: e.logo, played: gamesOf(s), wins: wins, losses: losses, ties: ties,
+      gf: getStat(s, ["pointsFor"], 0), ga: getStat(s, ["pointsAgainst"], 0), pts: getStat(s, ["points"], wins*3+ties) };
+  });
+  rows.sort((a,b) => (b.pts - a.pts) || ((b.gf-b.ga) - (a.gf-a.ga)) || (b.gf - a.gf));
+  rows.forEach((t,i) => {
     const tr = document.createElement("tr");
     tr.innerHTML =
       '<td>' + (i+1) + '</td>' +
-      '<td><img class="badge" src="' + (t.logo||"") + '" onerror="this.style.display=\'none\'">' + t.name + '</td>' +
+      '<td><img class="badge" src="' + esc(t.logo||"") + '" onerror="this.style.display=\'none\'">' + esc(t.name) + '</td>' +
       '<td class="num">' + t.played + '</td><td class="num">' + t.wins + '</td><td class="num">' + t.ties + '</td><td class="num">' + t.losses + '</td>' +
       '<td class="num">' + t.gf + '</td><td class="num">' + t.ga + '</td><td class="num">' + (t.gf-t.ga) + '</td><td class="num">' + t.pts + '</td>';
     tbody.appendChild(tr);
   });
 }
-function renderFootballMatches(events, strengths, leagueAvg, slug){
+function footballFormSlugs(lg, model, teamId){
+  const slugs = [lg.slug];
+  if(lg.kind === "cup"){ const s = model.strengths[teamId]; if(s && s.slug) slugs.push(s.slug); }
+  if(lg.kind === "national"){ ["fifa.friendly", "fifa.world"].forEach(x => { if(slugs.indexOf(x) < 0) slugs.push(x); }); }
+  return slugs;
+}
+function renderFootballMatches(events, model, lg){
   const list = el("football-matches-list"); list.innerHTML = "";
-  if(!events || events.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos programados para esta liga en este momento.</div>'; return; }
+  if(!events || events.length === 0){ list.innerHTML = '<div class="status">No hay partidos programados en los próximos 30 días para esta competición.</div>'; return; }
   events.forEach(ev => {
-    const home = strengths[ev.homeName] || { attack:1, defense:1, formMult:1 };
-    const away = strengths[ev.awayName] || { attack:1, defense:1, formMult:1 };
-    const expHome = leagueAvg * 1.3 * home.attack * home.formMult * away.defense;
-    const expAway = leagueAvg * 0.85 * away.attack * away.formMult * home.defense;
-    const pred = predictPoisson(Number.isFinite(expHome) ? expHome : leagueAvg, Number.isFinite(expAway) ? expAway : leagueAvg);
-    let homePct = Math.round(pred.home*100), drawPct = Math.round(pred.draw*100), awayPct = 100 - homePct - drawPct;
-    const validPct = Number.isFinite(homePct) && Number.isFinite(drawPct) && Number.isFinite(awayPct);
-    if(!validPct){ homePct = 40; drawPct = 25; awayPct = 35; }
+    const f = ev.forecast;
     const card = matchCardHTML(fmtDate(ev.date), ev.venue, ev.homeName, ev.awayName, ev.homeLogo, ev.awayLogo);
-    renderProbBar(card, homePct, drawPct, awayPct, true);
-    const dataAvailable = !!strengths[ev.homeName] && !!strengths[ev.awayName];
-    if(!validPct){ const n = document.createElement("div"); n.className="note"; n.textContent="Datos insuficientes para esta competición — probabilidad orientativa."; card.appendChild(n); }
-    else if(!dataAvailable){ const n = document.createElement("div"); n.className="note"; n.textContent="Uno de los equipos no tiene datos históricos en esta temporada — se usó fuerza promedio de liga."; card.appendChild(n); }
-    if(validPct){
-      const detail = document.createElement("div"); detail.className = "detail";
-      const score = mostLikelyScore(Number.isFinite(expHome)?expHome:leagueAvg, Number.isFinite(expAway)?expAway:leagueAvg);
-      const pickHome = homePct >= awayPct && homePct >= drawPct;
-      const pickAway = awayPct > homePct && awayPct >= drawPct;
-      const why = pickHome ? poissonWhy(true, ev.homeName, ev.awayName, home.attack, away.defense, "goles")
-        : pickAway ? poissonWhy(false, ev.awayName, ev.homeName, away.attack, home.defense, "goles")
-        : "Ambos equipos muestran fuerza similar de ataque/defensa — partido parejo.";
-      detail.innerHTML = '<span class="detail-score">Resultado más probable: ' + score + '</span><span class="detail-why">' + why + '</span>';
-      attachDetailToggle(card, detail, footballFormLoader(slug, strengths[ev.homeName], strengths[ev.awayName], ev));
+    if(!f.ok){
+      addNote(card, lg.kind === "national"
+        ? "Una de las selecciones tiene muy pocos partidos registrados — no se genera pronóstico."
+        : "Sin datos suficientes de uno de los equipos en esta temporada — no se genera pronóstico.");
+      list.appendChild(card); return;
     }
+    renderProbBar(card, f.homePct, f.drawPct, f.awayPct, true);
+    const detail = document.createElement("div"); detail.className = "detail";
+    detail.innerHTML = '<span class="detail-score">Resultado más probable: ' + f.score + '</span><span class="detail-why">' + esc(f.why) + '</span>';
+    attachDetailToggle(card, detail, espnFormLoader("soccer", footballFormSlugs(lg, model, ev.homeId), footballFormSlugs(lg, model, ev.awayId), ev.homeId, ev.awayId, ev.homeName, ev.awayName));
     list.appendChild(card);
   });
 }
+let footballLoadSeq = 0;
 async function loadFootball(){
-  const slug = el("league").value;
-  setStatus("football", "Cargando...");
+  const lg = leagueBySlug(el("league").value);
+  const seq = ++footballLoadSeq;
+  setStatus("football", lg.kind === "national" ? "Cargando (la primera vez tarda unos segundos en calcular el rating de selecciones)..." : "Cargando...");
   try{
-    const [entries, schedRes] = await Promise.all([
-      fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/soccer/" + slug + "/standings"),
-      fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/" + slug + "/scoreboard?dates=" + dateRangeParam(45))
+    const [model, sched] = await Promise.all([
+      loadFootballModel(lg),
+      fetchEspnScoreboard("soccer", lg.slug, 30).catch(err => ({ error: err }))
     ]);
-    const schedJson = await schedRes.json();
-    const { strengths, leagueAvg, parsed } = await getFootballStrengthsWithFallback(entries);
-    renderFootballStandings(parsed);
-
-    const allEvents = extractEspnEvents(schedJson);
-    allEvents.sort((a,b) => {
-      const aOk = strengths[a.homeName] && strengths[a.awayName] ? 1 : 0;
-      const bOk = strengths[b.homeName] && strengths[b.awayName] ? 1 : 0;
-      return bOk - aOk;
-    });
-    const events = allEvents.slice(0, 20);
-    renderFootballMatches(events, strengths, leagueAvg, slug);
-
-    setStatus("football", (entries.length === 0 ? "Sin tabla disponible para esta competición (formato copa). " : "Actualizado — " + entries.length + " equipos. ") + events.length + " próximos partidos.");
-  } catch(err){ setStatus("football", "Error: " + err.message); }
+    if(seq !== footballLoadSeq) return;
+    renderFootballStandings(model);
+    if(sched.error){
+      el("football-matches-list").innerHTML = '<div class="status">No se pudo cargar el calendario de esta competición (' + esc(sched.error.message) + '). Intenta con "Actualizar".</div>';
+      setStatus("football", "Tabla cargada, pero el calendario no respondió.");
+      return;
+    }
+    const all = extractEspnEvents(sched, 30);
+    all.forEach(ev => { ev.forecast = footballForecast(model, ev); });
+    // Primero los partidos con pronóstico (el orden por fecha se conserva dentro de cada grupo).
+    all.sort((a,b) => (b.forecast.ok ? 1 : 0) - (a.forecast.ok ? 1 : 0));
+    const events = all.slice(0, 20);
+    renderFootballMatches(events, model, lg);
+    const n = model.st.entries.length;
+    setStatus("football", (n === 0 ? "Sin tabla para esta competición. " : "Actualizado — " + n + " equipos. ") + events.length + " próximos partidos.");
+  } catch(err){ if(seq === footballLoadSeq) setStatus("football", "Error: " + err.message); }
 }
 
-/* ---------- BALONCESTO (NBA) ---------- */
-async function loadBasketball(){
-  setStatus("basketball", "Cargando...");
+/* ---------- BALONCESTO (NBA) y NFL: modelo logístico sobre diferencial de puntos ---------- */
+const NET_LEAGUES = {
+  basketball: { key: "basketball", sportPath: "basketball", league: "nba", label: "Baloncesto NBA", hfa: 2.5, scale: 10, minGames: 10, prior: 12, days: 7, pickDays: 5,
+    empty: "No hay próximos partidos en los próximos 7 días." },
+  nfl: { key: "nfl", sportPath: "football", league: "nfl", label: "NFL", hfa: 2, scale: 13, minGames: 6, prior: 6, days: 14, pickDays: 8,
+    empty: "No hay próximos partidos programados en este momento (posible receso de temporada)." }
+};
+async function loadNetModel(cfg){
+  const st = await fetchEspnStandings(ESPN_STANDINGS + cfg.sportPath + "/" + cfg.league + "/standings?level=1", cfg.minGames);
+  const strengths = {};
+  st.entries.forEach(e => {
+    const r = teamRates(e, cfg.prior);
+    if(r) strengths[e.id] = { net: r.forPg - r.againstPg, pf: r.forPg, pa: r.againstPg, id: e.id, name: e.name };
+  });
+  return { st: st, strengths: strengths };
+}
+function netForecast(cfg, model, g){
+  const h = model.strengths[g.homeId], a = model.strengths[g.awayId];
+  if(!h || !a) return { ok: false };
+  const hfa = g.neutral ? 0 : cfg.hfa;
+  const homePct = Math.round(logistic((h.net - a.net) + hfa, cfg.scale)*100), awayPct = 100 - homePct;
+  const pickHome = homePct >= awayPct;
+  return { ok: true, homePct: homePct, awayPct: awayPct, h: h, a: a,
+    pickTeam: pickHome ? g.homeName : g.awayName, pickPct: pickHome ? homePct : awayPct,
+    why: pickHome ? netRatingWhy(!g.neutral, g.homeName, g.awayName, h.net, a.net) : netRatingWhy(false, g.awayName, g.homeName, a.net, h.net),
+    score: estimateScore(h.pf, h.pa, a.pf, a.pa, hfa) };
+}
+async function loadNetLeague(cfg){
+  setStatus(cfg.key, "Cargando...");
   try{
-    const [entries, schedRes] = await Promise.all([
-      fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1"),
-      fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=" + dateRangeParam(45))
+    const [model, sched] = await Promise.all([
+      loadNetModel(cfg),
+      fetchEspnScoreboard(cfg.sportPath, cfg.league, cfg.days).catch(err => ({ error: err }))
     ]);
-    const schedJson = await schedRes.json();
-    const strengths = {};
-    const tbody = el("basketball-table-body"); tbody.innerHTML = "";
-    entries.sort((a,b) => (b.stats.winPercent||0) - (a.stats.winPercent||0)).forEach((e,i) => {
-      const wins = getStat(e.stats, ["wins"], 0), losses = getStat(e.stats, ["losses"], 0);
-      const played = getStat(e.stats, ["gamesPlayed"], wins+losses) || 1;
-      let pf = getStat(e.stats, ["avgPointsFor"], null); if(pf===null) pf = getStat(e.stats, ["pointsFor"], 0) / played;
-      let pa = getStat(e.stats, ["avgPointsAgainst"], null); if(pa===null) pa = getStat(e.stats, ["pointsAgainst"], 0) / played;
-      const winPct = getStat(e.stats, ["winPercent"], played ? wins/played : 0);
-      strengths[e.name] = { net: pf - pa, pf, pa, id: e.id };
+    const st = model.st;
+    const tbody = el(cfg.key + "-table-body"); tbody.innerHTML = "";
+    const rows = st.entries.map(e => {
+      const s = displayStats(e, st.avgPlayed);
+      const wins = getStat(s, ["wins"], 0), losses = getStat(s, ["losses"], 0);
+      const played = gamesOf(s);
+      const pf = played ? getStat(s, ["pointsFor"], 0)/played : 0, pa = played ? getStat(s, ["pointsAgainst"], 0)/played : 0;
+      return { name: e.name, logo: e.logo, played: played, wins: wins, losses: losses, pf: pf, pa: pa, winPct: played ? getStat(s, ["winPercent"], wins/played) : 0 };
+    });
+    rows.sort((a,b) => (b.winPct - a.winPct) || ((b.pf-b.pa) - (a.pf-a.pa)));
+    rows.forEach((r,i) => {
       const tr = document.createElement("tr");
-      tr.innerHTML = '<td>' + (i+1) + '</td><td><img class="badge" src="' + e.logo + '" onerror="this.style.display=\'none\'">' + e.name + '</td>' +
-        '<td class="num">' + played + '</td><td class="num">' + wins + '</td><td class="num">' + losses + '</td>' +
-        '<td class="num">' + pf.toFixed(1) + '</td><td class="num">' + pa.toFixed(1) + '</td><td class="num">' + (pf-pa).toFixed(1) + '</td><td class="num">' + (winPct*100).toFixed(1) + '%</td>';
+      tr.innerHTML = '<td>' + (i+1) + '</td><td><img class="badge" src="' + esc(r.logo) + '" onerror="this.style.display=\'none\'">' + esc(r.name) + '</td>' +
+        '<td class="num">' + r.played + '</td><td class="num">' + r.wins + '</td><td class="num">' + r.losses + '</td>' +
+        '<td class="num">' + r.pf.toFixed(1) + '</td><td class="num">' + r.pa.toFixed(1) + '</td><td class="num">' + (r.pf-r.pa).toFixed(1) + '</td><td class="num">' + (r.winPct*100).toFixed(1) + '%</td>';
       tbody.appendChild(tr);
     });
-    const games = extractEspnEvents(schedJson);
-    const list = el("basketball-matches-list"); list.innerHTML = "";
-    if(games.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos en los próximos días.</div>'; }
+    const list = el(cfg.key + "-matches-list"); list.innerHTML = "";
+    const prevNote = st.avgPlayed < 1 && st.usedPrev ? " La temporada aún no empieza: tabla y pronósticos usan la temporada anterior."
+      : st.usedPrev ? " Inicio de temporada: los pronósticos mezclan la temporada anterior." : "";
+    if(sched.error){
+      list.innerHTML = '<div class="status">No se pudo cargar el calendario (' + esc(sched.error.message) + '). Intenta con "Actualizar".</div>';
+      setStatus(cfg.key, "Tabla cargada, pero el calendario no respondió." + prevNote);
+      return;
+    }
+    const games = extractEspnEvents(sched, cfg.days);
+    if(games.length === 0){ list.innerHTML = '<div class="status">' + cfg.empty + '</div>'; }
     games.forEach(g => {
-      const h = strengths[g.homeName] || { net: 0 }; const a = strengths[g.awayName] || { net: 0 };
-      const diff = (h.net - a.net) + 2.5;
-      const pHome = logistic(diff, 10);
-      const homePct = Math.round(pHome*100), awayPct = 100-homePct;
-      const card = matchCardHTML(fmtDate(g.date), g.venue, g.homeName, g.awayName, g.homeLogo, g.awayLogo);
-      renderProbBar(card, homePct, 0, awayPct, false);
-      const dataOk = !!strengths[g.homeName] && !!strengths[g.awayName];
-      if(!dataOk){ const n=document.createElement("div"); n.className="note"; n.textContent="Datos de temporada limitados para uno de los equipos — estimación aproximada."; card.appendChild(n); }
-      else {
-        const detail = document.createElement("div"); detail.className = "detail";
-        const why = homePct >= awayPct ? netRatingWhy(true, g.homeName, g.awayName, h.net, a.net) : netRatingWhy(false, g.awayName, g.homeName, a.net, h.net);
-        const score = estimateScore(h.pf, h.pa, a.pf, a.pa, 2.5);
-        detail.innerHTML = '<span class="detail-score">Resultado estimado: ' + score + '</span><span class="detail-why">' + why + '</span>';
-        attachDetailToggle(card, detail, espnTeamFormLoader("basketball", "nba", h, a, g.homeName, g.awayName));
-      }
+      const f = netForecast(cfg, model, g);
+      const card = matchCardHTML(fmtDate(g.date) + (g.preseason ? " · Pretemporada" : ""), g.venue, g.homeName, g.awayName, g.homeLogo, g.awayLogo);
+      if(!f.ok){ addNote(card, "Uno de los equipos no tiene historial en la liga — no se genera pronóstico."); list.appendChild(card); return; }
+      renderProbBar(card, f.homePct, 0, f.awayPct, false);
+      if(g.preseason) addNote(card, "Partido de pretemporada: los equipos rotan titulares, el pronóstico es poco fiable.");
+      const detail = document.createElement("div"); detail.className = "detail";
+      detail.innerHTML = '<span class="detail-score">Resultado estimado: ' + f.score + '</span><span class="detail-why">' + esc(f.why) + '</span>';
+      attachDetailToggle(card, detail, espnFormLoader(cfg.sportPath, [cfg.league], [cfg.league], g.homeId, g.awayId, g.homeName, g.awayName));
       list.appendChild(card);
     });
-    setStatus("basketball", "Actualizado — " + entries.length + " equipos, " + games.length + " próximos partidos.");
-  } catch(err){ setStatus("basketball", "Error al cargar datos: " + err.message); }
+    setStatus(cfg.key, "Actualizado — " + st.entries.length + " equipos, " + games.length + " próximos partidos." + prevNote);
+  } catch(err){ setStatus(cfg.key, "Error al cargar datos: " + err.message); }
+}
+function loadBasketball(){ return loadNetLeague(NET_LEAGUES.basketball); }
+function loadNFL(){ return loadNetLeague(NET_LEAGUES.nfl); }
+
+/* ---------- HOCKEY (NHL): Poisson sobre goles, sin empate ---------- */
+/* El hockey es muy aleatorio. En un backtest con los 1,312 partidos de la temporada
+   2025-26, el Poisson sin regresión era peor que tirar una moneda (sus picks de 70-80%
+   acertaban 59%). Con la temporada anterior siempre mezclada (pesa como 20 partidos) y
+   la fuerza regresada 50% hacia la media queda calibrado, y casi ningún pick pasa de 65%. */
+const HOCKEY_DAYS = 7, HOCKEY_PRIOR = 20, HOCKEY_REGRESS = 0.5;
+async function loadHockeyModel(){
+  const st = await fetchEspnStandings(ESPN_STANDINGS + "hockey/nhl/standings?level=1", 99);
+  const rows = [];
+  st.entries.forEach(e => { const r = teamRates(e, HOCKEY_PRIOR); if(r) rows.push({ e: e, r: r }); });
+  let leagueAvg = rows.length ? rows.reduce((s,x) => s + x.r.forPg, 0) / rows.length : 3.0;
+  if(!(leagueAvg > 1)) leagueAvg = 3.0;
+  const strengths = {};
+  rows.forEach(x => {
+    strengths[x.e.id] = { attack: 1 + (clamp(x.r.forPg/leagueAvg, 0.6, 1.6) - 1) * HOCKEY_REGRESS, defense: 1 + (clamp(x.r.againstPg/leagueAvg, 0.6, 1.6) - 1) * HOCKEY_REGRESS, id: x.e.id, name: x.e.name };
+  });
+  return { st: st, strengths: strengths, leagueAvg: leagueAvg };
+}
+function hockeyForecast(model, g){
+  const h = model.strengths[g.homeId], a = model.strengths[g.awayId];
+  if(!h || !a) return { ok: false };
+  const expHome = model.leagueAvg * (g.neutral ? 1 : 1.02) * h.attack * a.defense;
+  const expAway = model.leagueAvg * (g.neutral ? 1 : 0.98) * a.attack * h.defense;
+  const homePct = Math.round(removeDraw(predictPoisson(expHome, expAway)).home*100), awayPct = 100 - homePct;
+  const pickHome = homePct >= awayPct;
+  return { ok: true, homePct: homePct, awayPct: awayPct,
+    pickTeam: pickHome ? g.homeName : g.awayName, pickPct: pickHome ? homePct : awayPct,
+    why: pickHome ? poissonWhy(!g.neutral, g.homeName, g.awayName, h.attack, a.defense, "goles") : poissonWhy(false, g.awayName, g.homeName, a.attack, h.defense, "goles"),
+    score: mostLikelyScore(expHome, expAway, true) };
+}
+async function loadHockey(){
+  setStatus("hockey", "Cargando...");
+  try{
+    const [model, sched] = await Promise.all([
+      loadHockeyModel(),
+      fetchEspnScoreboard("hockey", "nhl", HOCKEY_DAYS).catch(err => ({ error: err }))
+    ]);
+    const st = model.st;
+    const tbody = el("hockey-table-body"); tbody.innerHTML = "";
+    const rows = st.entries.map(e => {
+      const s = displayStats(e, st.avgPlayed);
+      const wins = getStat(s, ["wins"], 0), losses = getStat(s, ["losses"], 0), otl = getStat(s, ["otLosses", "overtimeLosses"], 0);
+      return { name: e.name, logo: e.logo, played: gamesOf(s), wins: wins, losses: losses, otl: otl,
+        gf: getStat(s, ["pointsFor"], 0), ga: getStat(s, ["pointsAgainst"], 0), pts: getStat(s, ["points"], wins*2+otl) };
+    });
+    rows.sort((a,b) => (b.pts - a.pts) || ((b.gf-b.ga) - (a.gf-a.ga)));
+    rows.forEach((r,i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = '<td>' + (i+1) + '</td><td><img class="badge" src="' + esc(r.logo) + '" onerror="this.style.display=\'none\'">' + esc(r.name) + '</td>' +
+        '<td class="num">' + r.played + '</td><td class="num">' + r.wins + '</td><td class="num">' + r.losses + '</td><td class="num">' + r.otl + '</td>' +
+        '<td class="num">' + r.gf + '</td><td class="num">' + r.ga + '</td><td class="num">' + (r.gf-r.ga) + '</td><td class="num">' + r.pts + '</td>';
+      tbody.appendChild(tr);
+    });
+    const list = el("hockey-matches-list"); list.innerHTML = "";
+    const prevNote = st.avgPlayed < 1 && st.usedPrev ? " La temporada aún no empieza: tabla y pronósticos usan la temporada anterior." : "";
+    if(sched.error){
+      list.innerHTML = '<div class="status">No se pudo cargar el calendario (' + esc(sched.error.message) + '). Intenta con "Actualizar".</div>';
+      setStatus("hockey", "Tabla cargada, pero el calendario no respondió." + prevNote);
+      return;
+    }
+    const games = extractEspnEvents(sched, HOCKEY_DAYS);
+    if(games.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos en los próximos 7 días.</div>'; }
+    games.forEach(g => {
+      const f = hockeyForecast(model, g);
+      const card = matchCardHTML(fmtDate(g.date) + (g.preseason ? " · Pretemporada" : ""), g.venue, g.homeName, g.awayName, g.homeLogo, g.awayLogo);
+      if(!f.ok){ addNote(card, "Uno de los equipos no tiene historial en la liga — no se genera pronóstico."); list.appendChild(card); return; }
+      renderProbBar(card, f.homePct, 0, f.awayPct, false);
+      if(g.preseason) addNote(card, "Partido de pretemporada: los equipos rotan titulares, el pronóstico es poco fiable.");
+      const detail = document.createElement("div"); detail.className = "detail";
+      detail.innerHTML = '<span class="detail-score">Resultado más probable: ' + f.score + '</span><span class="detail-why">' + esc(f.why) + '</span>';
+      attachDetailToggle(card, detail, espnFormLoader("hockey", ["nhl"], ["nhl"], g.homeId, g.awayId, g.homeName, g.awayName));
+      list.appendChild(card);
+    });
+    setStatus("hockey", "Actualizado — " + st.entries.length + " equipos, " + games.length + " próximos partidos." + prevNote);
+  } catch(err){ setStatus("hockey", "Error al cargar datos: " + err.message); }
 }
 
 /* ---------- BÉISBOL (MLB) ---------- */
+/* Regresión hacia 50% según partidos jugados: en un backtest con los 2,429 juegos de 2026,
+   sin esta corrección los picks de 70%+ acertaban 62% (sobre todo a inicio de temporada). */
+function mlbRegress(p, h, a){
+  const gp = Math.min(h.played || 162, a.played || 162);
+  const reg = Math.min(0.8, 0.25 + gp/250);
+  return 0.5 + reg*(p - 0.5);
+}
 async function loadBaseball(){
   setStatus("baseball", "Cargando...");
   try{
@@ -706,9 +1091,9 @@ async function loadBaseball(){
       // MLB's standings endpoint returns short club names ("Rays") while its schedule endpoint
       // returns full names ("Tampa Bay Rays") — keying by team id (stable across both) avoids
       // a silent name-mismatch that was dropping every MLB match from picks/predictions.
-      strengths[String(tr.team.id)] = { attack: (rs/played)/leagueAvg, defense: (ra/played)/leagueAvg, winPct: Number(tr.winningPercentage)||0.5, id: tr.team.id, name };
+      strengths[String(tr.team.id)] = { attack: (rs/played)/leagueAvg, defense: (ra/played)/leagueAvg, winPct: Number(tr.winningPercentage)||0.5, id: tr.team.id, name, played: played };
       const row = document.createElement("tr");
-      row.innerHTML = '<td>' + (i+1) + '</td><td>' + name + '</td>' +
+      row.innerHTML = '<td>' + (i+1) + '</td><td>' + esc(name) + '</td>' +
         '<td class="num">' + played + '</td><td class="num">' + tr.wins + '</td><td class="num">' + tr.losses + '</td>' +
         '<td class="num">' + rs + '</td><td class="num">' + ra + '</td><td class="num">' + (rs-ra) + '</td>' +
         '<td class="num">' + (Number(tr.winningPercentage||0)*100).toFixed(1) + '%</td><td>' + (tr.streak ? tr.streak.streakCode : "") + '</td>';
@@ -730,17 +1115,17 @@ async function loadBaseball(){
       const expAway = leagueAvg * 0.94 * a.attack * h.defense;
       const poissonPct = removeDraw(predictPoisson(expHome, expAway)).home;
       const log5Home = Math.min(0.97, Math.max(0.03, log5(h.winPct, a.winPct) + 0.02));
-      const homePct = Math.round((0.5*poissonPct + 0.5*log5Home)*100), awayPct = 100-homePct;
+      const homePct = Math.round(mlbRegress(0.5*poissonPct + 0.5*log5Home, h, a)*100), awayPct = 100-homePct;
       const card = matchCardHTML(fmtDate(g.gameDate), g.venue && g.venue.name, homeName, awayName, "", "");
       renderProbBar(card, homePct, 0, awayPct, false);
       const dataOk = !!strengths[homeId] && !!strengths[awayId];
-      if(!dataOk){ const n=document.createElement("div"); n.className="note"; n.textContent="Datos limitados para uno de los equipos — estimación aproximada."; card.appendChild(n); }
+      if(!dataOk){ addNote(card, "Datos limitados para uno de los equipos — estimación aproximada."); }
       else {
         const detail = document.createElement("div"); detail.className = "detail";
-        const score = mostLikelyScore(expHome, expAway);
+        const score = mostLikelyScore(expHome, expAway, true);
         const why = (homePct >= awayPct ? poissonWhy(true, homeName, awayName, h.attack, a.defense, "carreras") : poissonWhy(false, awayName, homeName, a.attack, h.defense, "carreras"))
           + " Récord de temporada: " + homeName + " " + (h.winPct*100).toFixed(1) + "% vs " + awayName + " " + (a.winPct*100).toFixed(1) + "%.";
-        detail.innerHTML = '<span class="detail-score">Resultado más probable: ' + score + '</span><span class="detail-why">' + why + '</span>';
+        detail.innerHTML = '<span class="detail-score">Resultado más probable: ' + score + '</span><span class="detail-why">' + esc(why) + '</span>';
         attachDetailToggle(card, detail, mlbFormLoader(h, a, homeName, awayName));
       }
       list.appendChild(card);
@@ -749,88 +1134,97 @@ async function loadBaseball(){
   } catch(err){ setStatus("baseball", "Error al cargar datos: " + err.message); }
 }
 
-/* ---------- TENIS (ATP) ---------- */
+/* ---------- TENIS (ATP / WTA) ----------
+   En el scoreboard de tenis cada "evento" es un torneo completo; los partidos vienen dentro
+   de groupings (Men's Singles, Women's Singles, dobles...), no en competitions[0] como en
+   los deportes de equipo. Por eso antes no aparecía ningún partido. */
+const TENNIS_TOURS = [
+  { league: "atp", label: "ATP", groupRe: /^men'?s singles/i },
+  { league: "wta", label: "WTA", groupRe: /^women'?s singles/i }
+];
+function normName(s){ return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim(); }
+async function fetchTennisRankMap(league){
+  try{
+    const json = await getJson(ESPN_SITE + "tennis/" + league + "/rankings");
+    const map = {};
+    (json.rankings || []).forEach(r => (r.ranks || []).forEach(rk => {
+      const name = rk.athlete && rk.athlete.displayName;
+      if(name && rk.current) map[normName(name)] = rk.current;
+    }));
+    return map;
+  } catch(e){ return {}; }
+}
+function extractTennisMatches(json, tour){
+  const out = [];
+  (json.events || []).forEach(ev => {
+    (ev.groupings || []).forEach(g => {
+      const gname = (g.grouping && (g.grouping.displayName || g.grouping.slug)) || "";
+      if(!tour.groupRe.test(gname)) return;
+      (g.competitions || []).forEach(c => {
+        const st = (c.status && c.status.type) || {};
+        if(st.state !== "pre") return;
+        const cs = c.competitors || [];
+        if(cs.length !== 2) return;
+        const p1 = cs.find(x => x.order === 1) || cs[0];
+        const p2 = cs.find(x => x !== p1);
+        const n1 = p1.athlete && p1.athlete.displayName, n2 = p2.athlete && p2.athlete.displayName;
+        if(!n1 || !n2 || n1 === "TBD" || n2 === "TBD") return;
+        out.push({ id: String(c.id), date: c.date, tour: tour.label, tournament: ev.shortName || ev.name || "",
+          round: (c.round && c.round.displayName) || "", venue: (c.venue && (c.venue.court || c.venue.fullName)) || "",
+          homeName: n1, awayName: n2,
+          homeLogo: (p1.athlete.flag && p1.athlete.flag.href) || "", awayLogo: (p2.athlete.flag && p2.athlete.flag.href) || "" });
+      });
+    });
+  });
+  return out;
+}
+/* Probabilidad a partir de la RAZÓN de rankings (no la resta): #1 vs #16 da ~83%,
+   #50 vs #70 da ~55%. Con la resta, #50 vs #70 salía como 92%, lo cual no es realista. */
+function tennisProb(rankA, rankB){ return 1/(1+Math.pow(rankA/rankB, 0.58)); }
+function tennisForecast(m){
+  if(!m.homeRank || !m.awayRank) return { ok: false };
+  const homePct = Math.round(tennisProb(Number(m.homeRank), Number(m.awayRank))*100), awayPct = 100 - homePct;
+  const pickHome = homePct >= awayPct;
+  return { ok: true, homePct: homePct, awayPct: awayPct,
+    pickTeam: pickHome ? m.homeName : m.awayName, pickPct: pickHome ? homePct : awayPct,
+    why: pickHome ? rankingWhy(m.homeName, m.homeRank, m.awayName, m.awayRank, m.tour) : rankingWhy(m.awayName, m.awayRank, m.homeName, m.homeRank, m.tour) };
+}
+async function loadTennisMatches(){
+  const all = []; const seen = {}; let ok = 0;
+  await Promise.all(TENNIS_TOURS.map(async tour => {
+    try{
+      const [json, rankMap] = await Promise.all([ getJson(ESPN_SITE + "tennis/" + tour.league + "/scoreboard"), fetchTennisRankMap(tour.league) ]);
+      ok++;
+      extractTennisMatches(json, tour).forEach(m => {
+        if(seen[m.id]) return;
+        seen[m.id] = true;
+        m.homeRank = rankMap[normName(m.homeName)]; m.awayRank = rankMap[normName(m.awayName)];
+        all.push(m);
+      });
+    } catch(e){}
+  }));
+  if(ok === 0) throw new Error("ESPN no devolvió partidos de tenis");
+  all.sort((a,b) => new Date(a.date) - new Date(b.date));
+  return all;
+}
 async function loadTennis(){
   setStatus("tennis", "Cargando...");
   try{
-    const [res, rankMap] = await Promise.all([
-      fetch("https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard"),
-      fetchAtpRankMap()
-    ]);
-    const json = await res.json();
-    const matches = extractEspnEvents(json);
+    const matches = await loadTennisMatches();
     const list = el("tennis-matches-list"); list.innerHTML = "";
-    if(matches.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos ATP disponibles en este momento.</div>'; }
+    if(matches.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos de individuales con jugadores definidos en este momento.</div>'; }
     matches.forEach(m => {
-      const homeRank = m.homeRank || rankMap[m.homeName];
-      const awayRank = m.awayRank || rankMap[m.awayName];
-      const card = matchCardHTML(fmtDate(m.date) + (m.status ? " · " + m.status : ""), "", m.homeName, m.awayName, m.homeLogo, m.awayLogo);
-      let homePct = 50, awayPct = 50, hasData = false;
-      if(homeRank && awayRank){
-        const p = logistic(Number(awayRank) - Number(homeRank), 8);
-        homePct = Math.round(p*100); awayPct = 100-homePct; hasData = true;
-      }
-      renderProbBar(card, homePct, 0, awayPct, false);
-      if(!hasData){ const n=document.createElement("div"); n.className="note"; n.textContent="Ranking ATP no disponible para este partido — probabilidad 50/50 por defecto."; card.appendChild(n); }
-      else {
-        const detail = document.createElement("div"); detail.className = "detail";
-        const why = homePct >= awayPct ? rankingWhy(m.homeName, homeRank, m.awayName, awayRank) : rankingWhy(m.awayName, awayRank, m.homeName, homeRank);
-        detail.innerHTML = '<span class="detail-why">' + why + '</span>';
-        attachDetailToggle(card, detail);
-      }
+      const card = matchCardHTML(fmtDate(m.date) + " · " + m.tour + " · " + m.tournament + (m.round ? " · " + m.round : ""), m.venue, m.homeName, m.awayName, m.homeLogo, m.awayLogo);
+      const f = tennisForecast(m);
+      if(!f.ok){ addNote(card, "Uno de los jugadores está fuera del top 150 del ranking — no se genera pronóstico."); list.appendChild(card); return; }
+      renderProbBar(card, f.homePct, 0, f.awayPct, false);
+      const detail = document.createElement("div"); detail.className = "detail";
+      detail.innerHTML = '<span class="detail-why">' + esc(f.why) + '</span>';
+      attachDetailToggle(card, detail);
       list.appendChild(card);
     });
     setStatus("tennis", "Actualizado — " + matches.length + " próximos partidos.");
   } catch(err){ setStatus("tennis", "Error al cargar datos: " + err.message); }
-}
-
-/* ---------- NFL ---------- */
-async function loadNFL(){
-  setStatus("nfl", "Cargando...");
-  try{
-    const [entries, schedRes] = await Promise.all([
-      fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/football/nfl/standings?level=1"),
-      fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=" + dateRangeParam(45))
-    ]);
-    const schedJson = await schedRes.json();
-    const strengths = {};
-    const tbody = el("nfl-table-body"); tbody.innerHTML = "";
-    entries.sort((a,b) => (b.stats.winPercent||0) - (a.stats.winPercent||0)).forEach((e,i) => {
-      const wins = getStat(e.stats, ["wins"], 0), losses = getStat(e.stats, ["losses"], 0);
-      const played = getStat(e.stats, ["gamesPlayed"], wins+losses) || 1;
-      let pf = getStat(e.stats, ["avgPointsFor"], null); if(pf===null) pf = getStat(e.stats, ["pointsFor"], 0) / played;
-      let pa = getStat(e.stats, ["avgPointsAgainst"], null); if(pa===null) pa = getStat(e.stats, ["pointsAgainst"], 0) / played;
-      const winPct = getStat(e.stats, ["winPercent"], played ? wins/played : 0);
-      strengths[e.name] = { net: pf - pa, pf, pa, id: e.id };
-      const tr = document.createElement("tr");
-      tr.innerHTML = '<td>' + (i+1) + '</td><td><img class="badge" src="' + e.logo + '" onerror="this.style.display=\'none\'">' + e.name + '</td>' +
-        '<td class="num">' + played + '</td><td class="num">' + wins + '</td><td class="num">' + losses + '</td>' +
-        '<td class="num">' + pf.toFixed(1) + '</td><td class="num">' + pa.toFixed(1) + '</td><td class="num">' + (pf-pa).toFixed(1) + '</td><td class="num">' + (winPct*100).toFixed(1) + '%</td>';
-      tbody.appendChild(tr);
-    });
-    const games = extractEspnEvents(schedJson);
-    const list = el("nfl-matches-list"); list.innerHTML = "";
-    if(games.length === 0){ list.innerHTML = '<div class="status">No hay próximos partidos programados en este momento (posible receso de temporada).</div>'; }
-    games.forEach(g => {
-      const h = strengths[g.homeName] || { net: 0 }; const a = strengths[g.awayName] || { net: 0 };
-      const diff = (h.net - a.net) + 2;
-      const pHome = logistic(diff, 13);
-      const homePct = Math.round(pHome*100), awayPct = 100-homePct;
-      const card = matchCardHTML(fmtDate(g.date), g.venue, g.homeName, g.awayName, g.homeLogo, g.awayLogo);
-      renderProbBar(card, homePct, 0, awayPct, false);
-      const dataOk = !!strengths[g.homeName] && !!strengths[g.awayName];
-      if(!dataOk){ const n=document.createElement("div"); n.className="note"; n.textContent="Datos de temporada limitados (pretemporada o equipo sin historial) — estimación aproximada."; card.appendChild(n); }
-      else {
-        const detail = document.createElement("div"); detail.className = "detail";
-        const why = homePct >= awayPct ? netRatingWhy(true, g.homeName, g.awayName, h.net, a.net) : netRatingWhy(false, g.awayName, g.homeName, a.net, h.net);
-        const score = estimateScore(h.pf, h.pa, a.pf, a.pa, 2);
-        detail.innerHTML = '<span class="detail-score">Resultado estimado: ' + score + '</span><span class="detail-why">' + why + '</span>';
-        attachDetailToggle(card, detail, espnTeamFormLoader("football", "nfl", h, a, g.homeName, g.awayName));
-      }
-      list.appendChild(card);
-    });
-    setStatus("nfl", "Actualizado — " + entries.length + " equipos, " + games.length + " próximos partidos.");
-  } catch(err){ setStatus("nfl", "Error al cargar datos: " + err.message); }
 }
 
 /* ---------- PICKS SEGUROS ---------- */
@@ -838,93 +1232,43 @@ async function computeFootballPicks(){
   const picks = [];
   await Promise.all(LEAGUES.map(async (lg) => {
     try{
-      const [entries, schedRes] = await Promise.all([
-        fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/soccer/" + lg.slug + "/standings"),
-        fetch("https://site.api.espn.com/apis/site/v2/sports/soccer/" + lg.slug + "/scoreboard?dates=" + dateRangeParam(30))
-      ]);
-      const schedJson = await schedRes.json();
-      const { strengths, leagueAvg } = await getFootballStrengthsWithFallback(entries);
-      const events = extractEspnEvents(schedJson)
-        .filter(ev => strengths[ev.homeName] && strengths[ev.awayName])
-        .slice(0, 8);
-      events.forEach(ev => {
-        const home = strengths[ev.homeName], away = strengths[ev.awayName];
-        if(!home || !away) return;
-        const expHome = leagueAvg * 1.3 * home.attack * away.defense;
-        const expAway = leagueAvg * 0.85 * away.attack * home.defense;
-        if(!Number.isFinite(expHome) || !Number.isFinite(expAway)) return;
-        const pred = predictPoisson(expHome, expAway);
-        const homePct = Math.round(pred.home*100), drawPct = Math.round(pred.draw*100), awayPct = 100-homePct-drawPct;
-        const pickHome = homePct >= awayPct && homePct >= drawPct;
-        const pickAway = awayPct > homePct && awayPct >= drawPct;
-        const pickTeam = pickHome ? ev.homeName : pickAway ? ev.awayName : "Empate";
-        const pickPct = pickHome ? homePct : pickAway ? awayPct : drawPct;
-        const why = pickHome ? poissonWhy(true, ev.homeName, ev.awayName, home.attack, away.defense, "goles")
-          : pickAway ? poissonWhy(false, ev.awayName, ev.homeName, away.attack, home.defense, "goles")
-          : "Fuerza de ataque/defensa muy pareja entre ambos equipos.";
+      const [model, sched] = await Promise.all([ loadFootballModel(lg), fetchEspnScoreboard("soccer", lg.slug, 10) ]);
+      extractEspnEvents(sched, 10).forEach(ev => {
+        const f = footballForecast(model, ev);
+        if(!f.ok) return;
         picks.push({ sport: "Fútbol · " + lg.name, home: ev.homeName, away: ev.awayName, homeLogo: ev.homeLogo, awayLogo: ev.awayLogo,
-          date: ev.date, venue: ev.venue, pickTeam, pickPct, why, scoreLine: mostLikelyScore(expHome, expAway) });
+          date: ev.date, venue: ev.venue, pickTeam: f.pickTeam, pickPct: f.pickPct, why: f.why, scoreLine: f.score });
       });
     } catch(e){}
   }));
   return picks;
 }
-async function computeBasketballPicks(){
+async function computeNetPicks(cfg){
   const picks = [];
   try{
-    const [entries, schedRes] = await Promise.all([
-      fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1"),
-      fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=" + dateRangeParam(30))
-    ]);
-    const schedJson = await schedRes.json();
-    const strengths = {};
-    entries.forEach(e => {
-      const wins = getStat(e.stats, ["wins"], 0), losses = getStat(e.stats, ["losses"], 0);
-      const played = getStat(e.stats, ["gamesPlayed"], wins+losses) || 1;
-      let pf = getStat(e.stats, ["avgPointsFor"], null); if(pf===null) pf = getStat(e.stats, ["pointsFor"], 0) / played;
-      let pa = getStat(e.stats, ["avgPointsAgainst"], null); if(pa===null) pa = getStat(e.stats, ["pointsAgainst"], 0) / played;
-      strengths[e.name] = { net: pf - pa, pf, pa };
-    });
-    extractEspnEvents(schedJson).forEach(g => {
-      const h = strengths[g.homeName], a = strengths[g.awayName];
-      if(!h || !a) return;
-      const diff = (h.net - a.net) + 2.5;
-      const pHome = Math.round(logistic(diff, 10)*100), pAway = 100-pHome;
-      const pickHome = pHome >= pAway;
-      picks.push({ sport: "Baloncesto NBA", home: g.homeName, away: g.awayName, homeLogo: g.homeLogo, awayLogo: g.awayLogo,
-        date: g.date, venue: g.venue, pickTeam: pickHome ? g.homeName : g.awayName, pickPct: pickHome ? pHome : pAway,
-        why: pickHome ? netRatingWhy(true, g.homeName, g.awayName, h.net, a.net) : netRatingWhy(false, g.awayName, g.homeName, a.net, h.net),
-        scoreLine: estimateScore(h.pf, h.pa, a.pf, a.pa, 2.5) });
+    const [model, sched] = await Promise.all([ loadNetModel(cfg), fetchEspnScoreboard(cfg.sportPath, cfg.league, cfg.pickDays) ]);
+    extractEspnEvents(sched, cfg.pickDays).forEach(g => {
+      if(g.preseason) return;
+      const f = netForecast(cfg, model, g);
+      if(!f.ok) return;
+      picks.push({ sport: cfg.label, home: g.homeName, away: g.awayName, homeLogo: g.homeLogo, awayLogo: g.awayLogo,
+        date: g.date, venue: g.venue, pickTeam: f.pickTeam, pickPct: f.pickPct, why: f.why, scoreLine: f.score });
     });
   } catch(e){}
   return picks;
 }
-async function computeNFLPicks(){
+function computeBasketballPicks(){ return computeNetPicks(NET_LEAGUES.basketball); }
+function computeNFLPicks(){ return computeNetPicks(NET_LEAGUES.nfl); }
+async function computeHockeyPicks(){
   const picks = [];
   try{
-    const [entries, schedRes] = await Promise.all([
-      fetchEspnStandingsSmart("https://site.api.espn.com/apis/v2/sports/football/nfl/standings?level=1"),
-      fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=" + dateRangeParam(30))
-    ]);
-    const schedJson = await schedRes.json();
-    const strengths = {};
-    entries.forEach(e => {
-      const wins = getStat(e.stats, ["wins"], 0), losses = getStat(e.stats, ["losses"], 0);
-      const played = getStat(e.stats, ["gamesPlayed"], wins+losses) || 1;
-      let pf = getStat(e.stats, ["avgPointsFor"], null); if(pf===null) pf = getStat(e.stats, ["pointsFor"], 0) / played;
-      let pa = getStat(e.stats, ["avgPointsAgainst"], null); if(pa===null) pa = getStat(e.stats, ["pointsAgainst"], 0) / played;
-      strengths[e.name] = { net: pf - pa, pf, pa };
-    });
-    extractEspnEvents(schedJson).forEach(g => {
-      const h = strengths[g.homeName], a = strengths[g.awayName];
-      if(!h || !a) return;
-      const diff = (h.net - a.net) + 2;
-      const pHome = Math.round(logistic(diff, 13)*100), pAway = 100-pHome;
-      const pickHome = pHome >= pAway;
-      picks.push({ sport: "NFL", home: g.homeName, away: g.awayName, homeLogo: g.homeLogo, awayLogo: g.awayLogo,
-        date: g.date, venue: g.venue, pickTeam: pickHome ? g.homeName : g.awayName, pickPct: pickHome ? pHome : pAway,
-        why: pickHome ? netRatingWhy(true, g.homeName, g.awayName, h.net, a.net) : netRatingWhy(false, g.awayName, g.homeName, a.net, h.net),
-        scoreLine: estimateScore(h.pf, h.pa, a.pf, a.pa, 2) });
+    const [model, sched] = await Promise.all([ loadHockeyModel(), fetchEspnScoreboard("hockey", "nhl", 5) ]);
+    extractEspnEvents(sched, 5).forEach(g => {
+      if(g.preseason) return;
+      const f = hockeyForecast(model, g);
+      if(!f.ok) return;
+      picks.push({ sport: "Hockey NHL", home: g.homeName, away: g.awayName, homeLogo: g.homeLogo, awayLogo: g.awayLogo,
+        date: g.date, venue: g.venue, pickTeam: f.pickTeam, pickPct: f.pickPct, why: f.why, scoreLine: f.score });
     });
   } catch(e){}
   return picks;
@@ -944,7 +1288,7 @@ async function computeBaseballPicks(){
       // Key by team id, not name: MLB standings uses short club names ("Rays") while the
       // schedule endpoint uses full names ("Tampa Bay Rays") — a name lookup here silently
       // dropped every MLB game from picks.
-      strengths[String(tr.team.id)] = { attack: (Number(tr.runsScored)||0)/played/leagueAvg, defense: (Number(tr.runsAllowed)||0)/played/leagueAvg, winPct: Number(tr.winningPercentage)||0.5 };
+      strengths[String(tr.team.id)] = { attack: (Number(tr.runsScored)||0)/played/leagueAvg, defense: (Number(tr.runsAllowed)||0)/played/leagueAvg, winPct: Number(tr.winningPercentage)||0.5, played: played };
     });
     const start = isoDate(new Date()); const endD = new Date(); endD.setDate(endD.getDate()+5);
     const schedJson = await (await fetch("https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=" + start + "&endDate=" + isoDate(endD))).json();
@@ -959,13 +1303,13 @@ async function computeBaseballPicks(){
       const expAway = leagueAvg * 0.94 * a.attack * h.defense;
       const poissonPct = removeDraw(predictPoisson(expHome, expAway)).home;
       const log5Home = Math.min(0.97, Math.max(0.03, log5(h.winPct, a.winPct) + 0.02));
-      const homePct = Math.round((0.5*poissonPct + 0.5*log5Home)*100), awayPct = 100-homePct;
+      const homePct = Math.round(mlbRegress(0.5*poissonPct + 0.5*log5Home, h, a)*100), awayPct = 100-homePct;
       const pickHome = homePct >= awayPct;
       const why = (pickHome ? poissonWhy(true, homeName, awayName, h.attack, a.defense, "carreras") : poissonWhy(false, awayName, homeName, a.attack, h.defense, "carreras"))
         + " Récord de temporada: " + homeName + " " + (h.winPct*100).toFixed(1) + "% vs " + awayName + " " + (a.winPct*100).toFixed(1) + "%.";
       picks.push({ sport: "Béisbol MLB", home: homeName, away: awayName, homeLogo: "", awayLogo: "",
         date: g.gameDate, venue: g.venue && g.venue.name, pickTeam: pickHome ? homeName : awayName, pickPct: pickHome ? homePct : awayPct,
-        why, scoreLine: mostLikelyScore(expHome, expAway) });
+        why, scoreLine: mostLikelyScore(expHome, expAway, true) });
     });
   } catch(e){}
   return picks;
@@ -973,19 +1317,11 @@ async function computeBaseballPicks(){
 async function computeTennisPicks(){
   const picks = [];
   try{
-    const [json, rankMap] = await Promise.all([
-      (await fetch("https://site.api.espn.com/apis/site/v2/sports/tennis/atp/scoreboard")).json(),
-      fetchAtpRankMap()
-    ]);
-    extractEspnEvents(json).forEach(m => {
-      const homeRank = m.homeRank || rankMap[m.homeName];
-      const awayRank = m.awayRank || rankMap[m.awayName];
-      if(!homeRank || !awayRank) return;
-      const p = Math.round(logistic(Number(awayRank) - Number(homeRank), 8)*100);
-      const pickHome = p >= 50;
-      picks.push({ sport: "Tenis ATP", home: m.homeName, away: m.awayName, homeLogo: m.homeLogo, awayLogo: m.awayLogo,
-        date: m.date, venue: "", pickTeam: pickHome ? m.homeName : m.awayName, pickPct: pickHome ? p : 100-p,
-        why: pickHome ? rankingWhy(m.homeName, homeRank, m.awayName, awayRank) : rankingWhy(m.awayName, awayRank, m.homeName, homeRank) });
+    (await loadTennisMatches()).forEach(m => {
+      const f = tennisForecast(m);
+      if(!f.ok) return;
+      picks.push({ sport: "Tenis " + m.tour + " · " + m.tournament, home: m.homeName, away: m.awayName, homeLogo: m.homeLogo, awayLogo: m.awayLogo,
+        date: m.date, venue: "", pickTeam: f.pickTeam, pickPct: f.pickPct, why: f.why });
     });
   } catch(e){}
   return picks;
@@ -994,10 +1330,11 @@ function renderPickCard(p, idx){
   const div = document.createElement("div"); div.className = "pick-row";
   const scoreHtml = p.scoreLine ? (' · resultado más probable ' + p.scoreLine) : "";
   div.innerHTML =
-    '<div class="pick-top"><label class="sport-check" style="gap:8px;"><input type="checkbox" class="pick-combo-check" data-idx="' + idx + '" checked><span class="pick-sport">' + p.sport + '</span></label><span class="pick-pct">' + p.pickPct + '%</span></div>' +
-    '<div class="pick-match">' + p.home + ' vs ' + p.away + (p.venue ? ' · ' + p.venue : '') + '</div>' +
-    '<div class="pick-label">Pick: ' + p.pickTeam + scoreHtml + '</div>' +
-    '<div class="pick-why">' + p.why + '</div>';
+    '<div class="pick-top"><label class="sport-check" style="gap:8px;"><input type="checkbox" class="pick-combo-check" data-idx="' + idx + '" checked><span class="pick-sport">' + esc(p.sport) + '</span></label><span class="pick-pct">' + p.pickPct + '%</span></div>' +
+    '<div class="pick-match">' + esc(p.home) + ' vs ' + esc(p.away) + '</div>' +
+    '<div class="pick-when">' + esc(fmtDate(p.date)) + (p.venue ? ' · ' + esc(p.venue) : '') + '</div>' +
+    '<div class="pick-label">Pick: ' + esc(p.pickTeam) + scoreHtml + '</div>' +
+    '<div class="pick-why">' + esc(p.why) + '</div>';
   return div;
 }
 /* ---------- Simulación Monte Carlo para combinadas (Picks seguros) ----------
@@ -1043,13 +1380,14 @@ async function loadPicks(){
   const checks = Array.from(document.querySelectorAll('.sport-checks input[type=checkbox][value]:checked')).map(c => c.value);
   if(checks.length === 0){ setStatus("picks", "Selecciona al menos un deporte."); return; }
   const dateFilter = el("picks-date-filter").value;
-  setStatus("picks", "Calculando picks...");
+  setStatus("picks", checks.indexOf("football") >= 0 ? "Calculando picks (con fútbol puede tardar unos 15 segundos la primera vez)..." : "Calculando picks...");
   const list = el("picks-list"); list.innerHTML = "";
   el("picks-combo").innerHTML = ""; el("picks-combo").className = "note";
-  const computers = { football: computeFootballPicks, basketball: computeBasketballPicks, baseball: computeBaseballPicks, tennis: computeTennisPicks, nfl: computeNFLPicks };
+  const computers = { football: computeFootballPicks, basketball: computeBasketballPicks, baseball: computeBaseballPicks, tennis: computeTennisPicks, nfl: computeNFLPicks, hockey: computeHockeyPicks };
   try{
     const results = await Promise.all(checks.map(s => computers[s]()));
     let all = results.flat();
+    const emptySports = checks.filter((s,i) => results[i].length === 0).length;
     if(dateFilter === "today") all = all.filter(p => isToday(p.date));
     else if(dateFilter === "tomorrow") all = all.filter(p => isTomorrow(p.date));
     all.sort((a,b) => b.pickPct - a.pickPct);
@@ -1057,14 +1395,19 @@ async function loadPicks(){
     const filterLabel = dateFilter === "today" ? "hoy" : dateFilter === "tomorrow" ? "mañana" : null;
     if(all.length === 0){ list.innerHTML = '<div class="status">' + (filterLabel ? "No hay partidos con datos suficientes programados para " + filterLabel + " en los deportes seleccionados." : "No hay suficientes datos todavía para generar picks con los deportes seleccionados.") + '</div>'; }
     else { all.forEach((p, idx) => list.appendChild(renderPickCard(p, idx))); setupComboUI(all); }
-    setStatus("picks", "Actualizado — " + all.length + " picks de " + checks.length + " deporte(s)" + (filterLabel ? " (" + filterLabel + ")." : "."));
+    setStatus("picks", "Actualizado — " + all.length + " picks de " + checks.length + " deporte(s)" + (filterLabel ? " (" + filterLabel + ")" : "") + "." +
+      (emptySports > 0 ? " " + emptySports + " deporte(s) sin partidos próximos con datos." : ""));
   } catch(err){ setStatus("picks", "Error: " + err.message); }
 }
 
 /* ---------- UI wiring ---------- */
 function initControls(){
   const sel = el("league");
-  LEAGUES.forEach(l => { const opt = document.createElement("option"); opt.value = l.slug; opt.textContent = l.name; sel.appendChild(opt); });
+  let og = null, lastGroup = null;
+  LEAGUES.forEach(l => {
+    if(l.group !== lastGroup){ og = document.createElement("optgroup"); og.label = l.group; sel.appendChild(og); lastGroup = l.group; }
+    const opt = document.createElement("option"); opt.value = l.slug; opt.textContent = l.name; og.appendChild(opt);
+  });
   sel.addEventListener("change", loadFootball);
 
   document.querySelectorAll(".subtab").forEach(tab => {
@@ -1077,7 +1420,7 @@ function initControls(){
     });
   });
 
-  const loaders = { football: loadFootball, basketball: loadBasketball, baseball: loadBaseball, tennis: loadTennis, nfl: loadNFL, picks: () => {} };
+  const loaders = { football: loadFootball, basketball: loadBasketball, baseball: loadBaseball, tennis: loadTennis, nfl: loadNFL, hockey: loadHockey, picks: () => {} };
   document.querySelectorAll(".sport-tab").forEach(tab => {
     tab.addEventListener("click", () => {
       document.querySelectorAll(".sport-tab").forEach(t => t.classList.remove("active"));
@@ -1089,11 +1432,14 @@ function initControls(){
     });
   });
 
-  el("football-reload").addEventListener("click", loadFootball);
-  el("basketball-reload").addEventListener("click", loadBasketball);
-  el("baseball-reload").addEventListener("click", loadBaseball);
-  el("tennis-reload").addEventListener("click", loadTennis);
-  el("nfl-reload").addEventListener("click", loadNFL);
+  // "Actualizar" y "Calcular picks" vuelven a pedir los datos en lugar de usar el caché.
+  const reload = fn => () => { clearCaches(); fn(); };
+  el("football-reload").addEventListener("click", reload(loadFootball));
+  el("basketball-reload").addEventListener("click", reload(loadBasketball));
+  el("baseball-reload").addEventListener("click", reload(loadBaseball));
+  el("tennis-reload").addEventListener("click", reload(loadTennis));
+  el("nfl-reload").addEventListener("click", reload(loadNFL));
+  el("hockey-reload").addEventListener("click", reload(loadHockey));
   el("picks-reload").addEventListener("click", loadPicks);
 }
 
